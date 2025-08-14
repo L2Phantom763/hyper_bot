@@ -1,5 +1,6 @@
-import { Markup } from "telegraf";
+import { Telegraf } from "telegraf";
 import { logger } from "../utils/logger.js";
+import { registerUser, isUserRegistered } from "../db/registerUser.js";
 
 /**
  * Handle the /start command
@@ -7,14 +8,34 @@ import { logger } from "../utils/logger.js";
  */
 export async function handleStart(ctx) {
   try {
-    const userId = ctx.from.id;
+    const telegramId = ctx.from.id;
     const username = ctx.from.username || "User";
+    const hlAddress = "0x00000000000000000000000000000000000000000";
+    const hlPrivkey = "0x00000000000000000000000000000000000000000";
+    const hlAgentPk = "0x00000000000000000000000000000000000000000";
 
-    logger.info("User started bot", { userId, username });
+    const welcomeMessage = `Welcome to HyperBot\n\nSuccessfully registered`;
+    const alreadyRegisteredMessage = `Welcome back to HyperBot\n\nAlready registered`;
 
-    const welcomeMessage = `Welcome to HyperBot`;
 
-    await ctx.replyWithMarkdown(welcomeMessage.trim());
+    logger.info("User started bot", { telegramId, username });
+
+
+    const isRegistered = await isUserRegistered(telegramId);
+    logger.info("User registered", { isRegistered });
+
+    if (!isRegistered) {
+      const user = await registerUser(
+        telegramId,
+        username,
+        hlAddress,
+        hlPrivkey,
+        hlAgentPk
+      );
+      logger.info("User registered", { user });
+    }
+
+    await ctx.replyWithMarkdown(isRegistered ? alreadyRegisteredMessage.trim() : welcomeMessage.trim());
   } catch (error) {
     logger.error("Error in handleStart", error);
     await ctx.reply("❌ An error occurred. Please try again later.");
