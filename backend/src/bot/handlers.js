@@ -1,6 +1,7 @@
 import { Telegraf } from "telegraf";
 import { logger } from "../utils/logger.js";
 import { registerUser, isUserRegistered } from "../db/registerUser.js";
+import { handleMarkets, setupPagination } from "./markets.js";
 
 /**
  * Handle the /start command
@@ -49,5 +50,7 @@ export async function handleStart(ctx) {
 export function registerHandlers(bot) {
   bot.command("start", handleStart);
 
+  bot.command("markets", (ctx) => handleMarkets(ctx));
+  setupPagination(bot);
   logger.info("Bot handlers registered successfully");
 }
