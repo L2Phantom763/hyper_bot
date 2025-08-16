@@ -1,18 +1,20 @@
 import { Markup } from 'telegraf';
 import axios from 'axios';
 import { logger } from "../utils/logger.js";
+import { infoClient } from "../utils/client.js";
 
 export async function handleMarkets(ctx, page = 0) {
   try {
-    const metaRes = await axios.post(process.env.HYPERLIQUID_API_URL, { type: 'meta' });
-    const tickers = metaRes.data.universe;
+    const meta = await infoClient.meta();
+    const tickers = meta.universe;
 
-    const midsRes = await axios.post(process.env.HYPERLIQUID_API_URL, { type: 'allMids' });
-    const prices = midsRes.data;
+    const prices = await infoClient.allMids();
 
     const itemsPerPage = 10;
-    const totalPages = Math.ceil(tickers.length / itemsPerPage);
-    const start = page * itemsPerPage;
+    const totalPages = Math.max(1, Math.ceil(tickers.length / itemsPerPage));
+    const clampedPage = Math.min(Math.max(0, page), totalPages - 1);
+
+    const start = clampedPage * itemsPerPage;
     const end = start + itemsPerPage;
     const paginatedTickers = tickers.slice(start, end);
 
@@ -20,40 +22,36 @@ export async function handleMarkets(ctx, page = 0) {
     const rows = [];
 
     paginatedTickers.forEach((ticker) => {
-      const price = prices[ticker];
-      message += `*${ticker}* - ${price} USDC\n`;
-
-      rows.push([
-        Markup.button.callback(`Long ${ticker}`, `LONG_${ticker}`),
-        Markup.button.callback(`Short ${ticker}`, `SHORT_${ticker}`)
-      ]);
+      const tickerName = ticker.name;
+      const price = prices[tickerName];
+      message += `*${tickerName}* - ${price ?? 'N/A'} USDC\n`;
     });
 
-    const navigationButtons = [];
+    message += `\nPage ${clampedPage + 1} of ${totalPages}`;
 
-    if (page > 0) {
-      navigationButtons.push(Markup.button.callback('Previous', `PREVIOUS_${page - 1}`));
+    const navigationRow = [];
+
+    if (clampedPage > 0) {
+      navigationRow.push(Markup.button.callback('Previous', `PREVIOUS_${page - 1}`));
     }
 
-    if (page < totalPages - 1) {
-      navigationButtons.push(Markup.button.callback('Next', `NEXT_${page + 1}`));
+    if (clampedPage < totalPages - 1) {
+      navigationRow.push(Markup.button.callback('Next', `NEXT_${page + 1}`));
     }
 
-    if (navigationButtons.length > 0) {
-      rows.push(navigationButtons);
-    }
+    const keyboard = { reply_markup: { inline_keyboard: navigationRow.length ? [navigationRow] : [] } };
 
-    await ctx.replyWithMarkdown(message, Markup.inlineKeyboard(rows));
+    if (ctx.update?.callback_query) {
+      await ctx.answerCbQuery().catch(() => {});
+      await ctx.editMessageText(message, { parse_mode: 'Markdown', ...keyboard });
+    } else {
+      await ctx.replyWithMarkdown(message, keyboard);
+    }
   } catch (error) {
         logger.error("Error in handleMarkets", error);
+        if (ctx.update?.callback_query) {
+          try {await ctx.answerCbQuery('Erreur'); } catch {}
+        }
         await ctx.reply("❌ An unexpected error occurred. Please try again or contact support.");
   }
-}
-
-export function setupPagination(bot) {
-  bot.action(/PAGE_(\d+)/, async (ctx) => {
-    const page = parseInt(ctx.match[1], 10);
-    await ctx.deleteMessage();
-    await handleMarkets(ctx, page);
-  });
 }
