@@ -20,6 +20,7 @@ import { logger } from "../utils/logger.js";
  * @param {string} [params.username]
  * @param {string} [params.hlAddress]
  * @param {string} [params.hlPrivkey]
+ * @param {string} [params.hlAgentPubKey]
  * @param {string} [params.hlAgentPk]
  * @returns {Promise<Object>} Inserted or updated user row
  */
@@ -28,6 +29,7 @@ export async function registerUser(
   username,
   hlAddress,
   hlPrivkey,
+  hlAgentPubKey,
   hlAgentPk,
 ) {
   if (telegramId === undefined || telegramId === null) {
@@ -43,6 +45,7 @@ export async function registerUser(
         hl_privkey,
         created_at,
         last_active,
+        hl_agent_pubKey,
         hl_agent_pk
       ) VALUES (
         ${telegramId},
@@ -51,6 +54,7 @@ export async function registerUser(
         ${hlPrivkey},
         NOW(),
         NOW(),
+        ${hlAgentPubKey},
         ${hlAgentPk}
       )
       ON CONFLICT (telegram_id) DO UPDATE SET
@@ -58,9 +62,10 @@ export async function registerUser(
         hl_address = EXCLUDED.hl_address,
         hl_privkey = EXCLUDED.hl_privkey,
         last_active = NOW(),
-        hl_agent_pk = EXCLUDED.hl_agent_pk
+        hl_agent_pk = EXCLUDED.hl_agent_pk,
+        hl_agent_pubKey = EXCLUDED.hl_agent_pubKey
       RETURNING
-        id_user, telegram_id, username, hl_address, hl_privkey, created_at, last_active, hl_agent_pk
+        id_user, telegram_id, username, hl_address, hl_privkey, created_at, last_active, hl_agent_pk, hl_agent_pubKey
     `;
 
   return row;
