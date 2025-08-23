@@ -111,7 +111,10 @@ async function handleWithdrawNetworkSelect(ctx) {
     const network = data === "withdraw_net_arbitrum" ? "arbitrum" : "core";
     const prev = withdrawState.get(telegramId) || {};
     withdrawState.set(telegramId, { ...prev, step: "awaiting_address", network });
-    await ctx.reply("Please send the destination address (EVM) to withdraw to:");
+    const prompt = network === "arbitrum"
+      ? "Please send the destination address (EVM) to withdraw to:\n\nNote: Withdrawals on Arbitrum incur a 1 USDC fee."
+      : "Please send the destination address (EVM) to withdraw to:";
+    await ctx.reply(prompt);
   } catch (error) {
     logger.error("Error in handleWithdrawNetworkSelect", error);
   }
@@ -134,8 +137,9 @@ async function handleTextInput(ctx) {
       const userInfo = await getUserInfo(telegramId);
       const balance = await getBalance(userInfo.hl_address);
       const balanceNum = Number(balance);
+      const feeNote = state.network === "arbitrum" ? "\nNote: Withdrawals on Arbitrum incur a 1 USDC fee." : "";
       await ctx.reply(
-        `Address saved. Your available balance is ${balanceNum.toFixed(4)} USDC.\n\nPlease send the amount to withdraw (e.g. 12.5):`
+        `Address saved. Your available balance is ${balanceNum.toFixed(4)} USDC.${feeNote}\n\nPlease send the amount to withdraw (e.g. 12.5):`
       );
       return;
     }
@@ -164,8 +168,9 @@ async function handleTextInput(ctx) {
           ? await arbitrumWithdraw(wallet, destination, amountStr)
           : await coreWithdraw(wallet, destination, amountStr);
         logger.info("Withdraw result", { telegramId, result });
+        const feeLine = state.network === "arbitrum" ? "\n- Fee: 1 USDC" : "";
         await ctx.reply(
-          `✅ Withdraw requested on ${state.network === "arbitrum" ? "Arbitrum" : "HyperCore"}:\n- To: ${destination}\n- Amount: ${amountStr} USDC`
+          `✅ Withdraw requested on ${state.network === "arbitrum" ? "Arbitrum" : "HyperCore"}:\n- To: ${destination}\n- Amount: ${amountStr} USDC${feeLine}`
         );
       } catch (err) {
         logger.error("Withdraw execution error", err);
