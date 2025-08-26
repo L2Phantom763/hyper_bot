@@ -12,7 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@nktkas/hyperliquid": "^0.22.1",
+    "@nktkas/hyperliquid": "^0.24.0",
     "axios": "^1.11.0",
     "crypto": "^1.0.1",
     "dotenv": "^17.2.1",
