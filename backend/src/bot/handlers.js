@@ -11,6 +11,7 @@ import { getBalance } from "../utils/balances.js";
 import { getUserInfo } from "../db/getUserInfo.js";
 import { ethers } from "ethers";
 import { coreWithdraw, arbitrumWithdraw } from "../utils/withdraw.js";
+import { handlePositions } from "./position.js";
 
 // In-memory state to handle withdraw conversation per user
 const withdrawState = new Map();
@@ -234,9 +235,8 @@ async function handleRefreshBalance(ctx) {
  */
 export function registerHandlers(bot) {
   bot.command("start", handleStart);
-
   bot.command("markets", (ctx) => handleMarkets(ctx, 0));
-
+  bot.command("positions", handlePositions);
   bot.action(/^NEXT_(\d+)$/, async (ctx) => {
     const page = Number(ctx.match[1]);
     await handleMarkets(ctx, page);
@@ -246,10 +246,7 @@ export function registerHandlers(bot) {
     const page = Number(ctx.match[1]);
     await handleMarkets(ctx, page);
   });
-  
-
   registerLongHandler(bot);
-  
   registerShortHandler(bot);
   bot.command("approveAgent", handleApproveAgent);
   bot.action("refresh_balance", handleRefreshBalance);

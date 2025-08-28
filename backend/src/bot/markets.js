@@ -1,5 +1,4 @@
 import { Markup } from 'telegraf';
-import axios from 'axios';
 import { logger } from "../utils/logger.js";
 import { infoClient } from "../utils/client.js";
 

@@ -1,10 +1,7 @@
 import { ethers } from "ethers";
-import { ExchangeClient,WebSocketTransport } from "@nktkas/hyperliquid";
-import { infoClient } from "../utils/client";
-
-const transport = new WebSocketTransport({
-    url: 'wss://api.hyperliquid.xyz/ws',
-});
+import { decryptAES } from "../utils/aes.js";
+import { exchClient, infoClient } from "../utils/client.js";
+import sql from "../db/db.js";
 
 /**
  * Place an order on Hyperliquid
@@ -18,38 +15,66 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy)
 {
     // 1. Get privkey user
     const [user] = await sql`
-        SELECT hl_privkey FROM users WHERE telegram_id = ${telegramId}
+        SELECT id_user, hl_privkey FROM users WHERE telegram_id = ${telegramId}
     `;
     if (!user || !user.hl_privkey) {
         throw new Error('User not registered or missing private key');
     }
 
-    // 2. Setup wallet + client
-    const wallet = new ethers.Wallet(user.hl_privkey);
-    const client = new ExchangeClient({ transport, wallet});
+    // 2. Decrypt privkey
+    const privKey = decryptAES(user.hl_privkey);
+    const wallet = new ethers.Wallet(privKey);
 
-    // 3. Current price
+    // 3. Setup HL Client
+    const client = await exchClient(wallet);
+
+    // 4. Get current price
     const mids = await infoClient.allMids();
     const price = mids[ticker];
     if (!price) {
         throw new Error(`Ticker ${ticker} not found`);
     }
 
-    // 4. Calculate order size
-    const size = margin * leverage;
+    // 5. Calculate order size
+    const notional = margin * leverage; // en USDC
     const sz = (notional / price).toString();
 
-    // 5. Place order
-    const resp = await client.order({
-        coin: ticker,
-        isBuy,
-        sz,
-        orderType: {
-            market: {},
+    console.log("Order payload:", JSON.stringify({
+    orders: [{
+        a: 0,
+        b: isBuy,
+        s: sz,
+        r: false,
+        t: {
+            "trigger": {
+                "isMarket": true,
+                "triggerPx": price.toString(),
+                "tpsl": isBuy ? "tp" : "sl"
+            }
         }
+    }],
+    grouping: "na"
+    }, null, 2));
+
+    // 6. Place market order
+    const resp = await client.order({
+        orders: [{
+            a: 0,
+            b: isBuy,
+            s: sz,
+            r: false,
+            t: {
+                "trigger": {
+                    "isMarket": true,
+                    "triggerPx": price.toString(),
+                    "tpsl": isBuy ? "tp" : "sl"
+                }
+            }
+        }],
+        grouping: "na"
     });
 
-    // 6. Save trade in DB
+    // 7. Save trade in DB
     await sql`
         INSERT INTO trades (
             user_id, side, ticker, leverage, margin, size, entry_price, status
@@ -59,7 +84,7 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy)
             ${ticker},
             ${leverage},
             ${margin},
-            ${notional},
+            ${sz},
             ${price},
             'open'
         )

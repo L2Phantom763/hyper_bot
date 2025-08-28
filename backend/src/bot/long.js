@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { logger } from '../utils/logger.js';
 import { hasSufficientBalance } from '../services/checkBalance.js';
+import { placeOrder } from '../services/placeOrder.js';
 
 // In-memory session store
 const sessions = {};
@@ -26,9 +27,9 @@ export default function registerLongHandler(bot) {
       const leverage = parseInt(rawLeverage.toLowerCase().replace('x', ''), 10);
 
       // check balance
-      if (await hasSufficientBalance(telegramId, margin) === false) {
-        return ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-      }
+      // if (await hasSufficientBalance(telegramId, margin) === false) {
+      //   return ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
+      // }
 
       return await confirmOrder(ctx, telegramId, {
         side: 'long',
@@ -81,12 +82,12 @@ export default function registerLongHandler(bot) {
         }
 
         // balance check (DB lookup)
-        const ok = await hasSufficientBalance(telegramId, margin);
-        if (!ok) {
-          await ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-          delete sessions[telegramId];
-          return;
-        }
+        // const ok = await hasSufficientBalance(telegramId, margin);
+        // if (!ok) {
+        //   await ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
+        //   delete sessions[telegramId];
+        //   return;
+        // }
 
         session.data.margin = margin;
 
@@ -168,7 +169,11 @@ Margin: ${margin} USDC
 
 ✅ Confirm / ❌ Cancel`;
 
-  sessions[telegramId] = { action: side, step: 'confirm' };
+  sessions[telegramId] = { 
+    action: side, 
+    step: 'confirm',
+    data: { ticker, leverage, margin }
+  };
 
   await ctx.replyWithMarkdown(message, Markup.inlineKeyboard([
     [Markup.button.callback('✅ Confirm', 'CONFIRM_LONG')],
