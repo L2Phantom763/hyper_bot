@@ -26,10 +26,10 @@ export default function registerLongHandler(bot) {
       const ticker = rawTicker.toUpperCase();
       const leverage = parseInt(rawLeverage.toLowerCase().replace('x', ''), 10);
 
-      // check balance
-      // if (await hasSufficientBalance(telegramId, margin) === false) {
-      //   return ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-      // }
+      const ok = await hasSufficientBalance(telegramId, margin);
+      if (!ok) {
+        return ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
+      }
 
       return await confirmOrder(ctx, telegramId, {
         side: 'long',
@@ -81,13 +81,13 @@ export default function registerLongHandler(bot) {
           return ctx.reply('❗️Please enter a valid number for margin.');
         }
 
-        // balance check (DB lookup)
-        // const ok = await hasSufficientBalance(telegramId, margin);
-        // if (!ok) {
-        //   await ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-        //   delete sessions[telegramId];
-        //   return;
-        // }
+        //balance check (DB lookup)
+        const ok = await hasSufficientBalance(telegramId, margin);
+        if (!ok) {
+          await ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
+          delete sessions[telegramId];
+          return;
+        }
 
         session.data.margin = margin;
 
