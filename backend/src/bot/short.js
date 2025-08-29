@@ -123,7 +123,7 @@ export default function registerShortHandler(bot) {
             false // <-- false = SHORT
           );
 
-          await ctx.reply(`✅ Short order sent!\nTx: ${JSON.stringify(resp)}`);
+          await ctx.reply(`✅ Short order sent! Good luck!`);
         } catch (err) {
           logger.error('Error placing short order', err);
           await ctx.reply('❌ Error placing short order.');

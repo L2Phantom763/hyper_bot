@@ -135,7 +135,7 @@ export default function registerLongHandler(bot) {
 
           try {
             const resp = await placeOrder(telegramId, ticker, margin, leverage, true);
-            await ctx.reply(`✅ Order sent!\nCloid: ${resp.cloid || 'N/A'}`);
+            await ctx.reply(`✅ Long order sent! Good luck!`);
           } catch (err) {
             logger.error("Place order failed", err);
             await ctx.reply(`❌ Failed to place order: ${err.message}`);
