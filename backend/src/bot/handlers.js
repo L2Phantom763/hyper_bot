@@ -1,4 +1,3 @@
-import { Telegraf } from "telegraf";
 import { logger } from "../utils/logger.js";
 import { registerUser, isUserRegistered } from "../db/registerUser.js";
 import { handleMarkets } from "./markets.js";
@@ -12,6 +11,10 @@ import { getUserInfo } from "../db/getUserInfo.js";
 import { ethers } from "ethers";
 import { coreWithdraw, arbitrumWithdraw } from "../utils/withdraw.js";
 import { handlePositions } from "./position.js";
+import { handleBalance } from "./balance.js";
+import { handleWallet } from "./wallet.js";
+import registerCloseHandler from "./close.js";
+import { handleHelp } from "./help.js";
 
 // In-memory state to handle withdraw conversation per user
 const withdrawState = new Map();
@@ -31,7 +34,6 @@ export async function handleStart(ctx) {
     logger.info("User registered", { isRegistered });
 
     if (!isRegistered) {
-
       const wallet = await generateWallet();
       const agentWallet = await generateWallet();
 
@@ -44,23 +46,39 @@ export async function handleStart(ctx) {
         encryptAES(agentWallet.privateKey)
       );
       logger.info("User registered", { user });
-
     }
 
     const userInfo = await getUserInfo(telegramId);
     const userBalance = await getBalance(userInfo.hl_address);
 
-    const welcomeMessage = `Welcome to HyperBot\n\n Please deposit usdc to this address: ${userInfo.hl_address}\n\nYour balance is: ${userBalance} USDC`;
-    const alreadyRegisteredMessage = `Welcome back to HyperBot\n\nPlease deposit usdc to this address: ${userInfo.hl_address}\n\nYour balance is: ${userBalance} USDC`;
+    const welcomeMessage = `👋 Welcome to HyperBot
 
-    const buttons = [[{ text: "🔄 Refresh balance", callback_data: "refresh_balance" }]];
+    Please deposit USDC to this address:
+    ${userInfo.hl_address}
+    
+    Your balance is: ${Number(userBalance).toFixed(2)} USDC
+    
+    ❓ Need help? Type /help to see all available commands.`;
+
+    const alreadyRegisteredMessage = `👋 Welcome back to HyperBot
+    
+    Please deposit USDC to this address:
+    ${userInfo.hl_address}
+    
+    Your balance is: ${Number(userBalance).toFixed(2)} USDC
+    
+    ❓ Need help? Type /help to see all available commands.`;
+
+    const buttons = [
+      [{ text: "🔄 Refresh balance", callback_data: "refresh_balance" }],
+    ];
     if (Number(userBalance) > 0) {
       buttons[0].push({ text: "💸 Withdraw", callback_data: "withdraw_start" });
     }
     const refreshKeyboard = {
       reply_markup: {
-        inline_keyboard: buttons
-      }
+        inline_keyboard: buttons,
+      },
     };
 
     await ctx.replyWithMarkdown(
@@ -75,12 +93,12 @@ export async function handleStart(ctx) {
 
 export async function handleApproveAgent(ctx) {
   try {
-  const telegramId = ctx.from.id;
-  const userInfo = await getUserInfo(telegramId);
-  const wallet = await new ethers.Wallet(decryptAES(userInfo.hl_privkey));
-  const result = await approveAgent(wallet, userInfo.hl_agent_pubkey);
-  logger.info("Approve agent", result);
-  await ctx.replyWithMarkdown(`Approve agent: ${result}`);
+    const telegramId = ctx.from.id;
+    const userInfo = await getUserInfo(telegramId);
+    const wallet = await new ethers.Wallet(decryptAES(userInfo.hl_privkey));
+    const result = await approveAgent(wallet, userInfo.hl_agent_pubkey);
+    logger.info("Approve agent", result);
+    await ctx.replyWithMarkdown(`Approve agent: ${result}`);
   } catch (error) {
     logger.error("Error in handleApproveAgent", error);
     await ctx.reply("❌ An error occurred. Please try again later.");
@@ -94,16 +112,20 @@ async function handleWithdraw(ctx) {
     withdrawState.set(telegramId, { step: "awaiting_network" });
     const networkKeyboard = {
       reply_markup: {
-        inline_keyboard: [[
-          { text: "HyperCore", callback_data: "withdraw_net_core" },
-          { text: "Arbitrum", callback_data: "withdraw_net_arbitrum" }
-        ]]
-      }
+        inline_keyboard: [
+          [
+            { text: "HyperCore", callback_data: "withdraw_net_core" },
+            { text: "Arbitrum", callback_data: "withdraw_net_arbitrum" },
+          ],
+        ],
+      },
     };
     await ctx.reply("Choose the network for withdrawal:", networkKeyboard);
   } catch (error) {
     logger.error("Error in handleWithdraw (start)", error);
-    try { await ctx.answerCbQuery("Failed to start withdraw ❌"); } catch (_) {}
+    try {
+      await ctx.answerCbQuery("Failed to start withdraw ❌");
+    } catch (_) {}
   }
 }
 
@@ -114,10 +136,15 @@ async function handleWithdrawNetworkSelect(ctx) {
     const data = ctx.callbackQuery?.data;
     const network = data === "withdraw_net_arbitrum" ? "arbitrum" : "core";
     const prev = withdrawState.get(telegramId) || {};
-    withdrawState.set(telegramId, { ...prev, step: "awaiting_address", network });
-    const prompt = network === "arbitrum"
-      ? "Please send the destination address (EVM) to withdraw to:\n\nNote: Withdrawals on Arbitrum incur a 1 USDC fee."
-      : "Please send the destination address (EVM) to withdraw to:";
+    withdrawState.set(telegramId, {
+      ...prev,
+      step: "awaiting_address",
+      network,
+    });
+    const prompt =
+      network === "arbitrum"
+        ? "Please send the destination address (EVM) to withdraw to:\n\nNote: Withdrawals on Arbitrum incur a 1 USDC fee."
+        : "Please send the destination address (EVM) to withdraw to:";
     await ctx.reply(prompt);
   } catch (error) {
     logger.error("Error in handleWithdrawNetworkSelect", error);
@@ -137,13 +164,22 @@ async function handleTextInput(ctx) {
         await ctx.reply("❌ Invalid address. Please send a valid EVM address:");
         return;
       }
-      withdrawState.set(telegramId, { ...state, step: "awaiting_amount", address: text });
+      withdrawState.set(telegramId, {
+        ...state,
+        step: "awaiting_amount",
+        address: text,
+      });
       const userInfo = await getUserInfo(telegramId);
       const balance = await getBalance(userInfo.hl_address);
       const balanceNum = Number(balance);
-      const feeNote = state.network === "arbitrum" ? "\nNote: Withdrawals on Arbitrum incur a 1 USDC fee." : "";
+      const feeNote =
+        state.network === "arbitrum"
+          ? "\nNote: Withdrawals on Arbitrum incur a 1 USDC fee."
+          : "";
       await ctx.reply(
-        `Address saved. Your available balance is ${balanceNum.toFixed(4)} USDC.${feeNote}\n\nPlease send the amount to withdraw (e.g. 12.5):`
+        `Address saved. Your available balance is ${balanceNum.toFixed(
+          4
+        )} USDC.${feeNote}\n\nPlease send the amount to withdraw (e.g. 12.5):`
       );
       return;
     }
@@ -158,7 +194,9 @@ async function handleTextInput(ctx) {
       }
       if (amountNum > balanceNum) {
         await ctx.reply(
-          `❌ Amount exceeds your balance (${balanceNum.toFixed(4)} USDC). Please send a smaller amount:`
+          `❌ Amount exceeds your balance (${balanceNum.toFixed(
+            4
+          )} USDC). Please send a smaller amount:`
         );
         return;
       }
@@ -168,17 +206,22 @@ async function handleTextInput(ctx) {
       const destination = state.address;
 
       try {
-        const result = state.network === "arbitrum"
-          ? await arbitrumWithdraw(wallet, destination, amountStr)
-          : await coreWithdraw(wallet, destination, amountStr);
+        const result =
+          state.network === "arbitrum"
+            ? await arbitrumWithdraw(wallet, destination, amountStr)
+            : await coreWithdraw(wallet, destination, amountStr);
         logger.info("Withdraw result", { telegramId, result });
         const feeLine = state.network === "arbitrum" ? "\n- Fee: 1 USDC" : "";
         await ctx.reply(
-          `✅ Withdraw requested on ${state.network === "arbitrum" ? "Arbitrum" : "HyperCore"}:\n- To: ${destination}\n- Amount: ${amountStr} USDC${feeLine}`
+          `✅ Withdraw requested on ${
+            state.network === "arbitrum" ? "Arbitrum" : "HyperCore"
+          }:\n- To: ${destination}\n- Amount: ${amountStr} USDC${feeLine}`
         );
       } catch (err) {
         logger.error("Withdraw execution error", err);
-        await ctx.reply("❌ Failed to request withdrawal. Please try again later.");
+        await ctx.reply(
+          "❌ Failed to request withdrawal. Please try again later."
+        );
       } finally {
         withdrawState.delete(telegramId);
       }
@@ -199,17 +242,22 @@ async function handleRefreshBalance(ctx) {
 
     const message = `Welcome back to HyperBot\n\nPlease deposit usdc to this address: ${userInfo.hl_address}\n\nYour balance is: ${userBalance} USDC`;
 
-    const buttons = [[{ text: "🔄 Refresh balance", callback_data: "refresh_balance" }]];
+    const buttons = [
+      [{ text: "🔄 Refresh balance", callback_data: "refresh_balance" }],
+    ];
     if (Number(userBalance) > 0) {
       buttons[0].push({ text: "💸 Withdraw", callback_data: "withdraw_start" });
     }
     const refreshKeyboard = {
       reply_markup: {
-        inline_keyboard: buttons
-      }
+        inline_keyboard: buttons,
+      },
     };
 
-    await ctx.editMessageText(message.trim(), { parse_mode: "Markdown", ...refreshKeyboard });
+    await ctx.editMessageText(message.trim(), {
+      parse_mode: "Markdown",
+      ...refreshKeyboard,
+    });
     await ctx.answerCbQuery("Balance refreshed ✅");
   } catch (error) {
     // If the error is "message is not modified", do not log it as an error (it's not a real error)
@@ -237,6 +285,9 @@ export function registerHandlers(bot) {
   bot.command("start", handleStart);
   bot.command("markets", (ctx) => handleMarkets(ctx, 0));
   bot.command("positions", handlePositions);
+  bot.command("balance", handleBalance);
+  bot.command("wallet", handleWallet);
+  bot.command("help", handleHelp);
   bot.action(/^NEXT_(\d+)$/, async (ctx) => {
     const page = Number(ctx.match[1]);
     await handleMarkets(ctx, page);
@@ -248,6 +299,7 @@ export function registerHandlers(bot) {
   });
   registerLongHandler(bot);
   registerShortHandler(bot);
+  registerCloseHandler(bot);
   bot.command("approveAgent", handleApproveAgent);
   bot.action("refresh_balance", handleRefreshBalance);
   bot.action("withdraw_start", handleWithdraw);

@@ -1,7 +1,6 @@
-import { Markup } from 'telegraf';
-import { logger } from '../utils/logger.js';
-import { hasSufficientBalance } from '../services/checkBalance.js';
-import { placeOrder } from '../services/placeOrder.js';
+import { Markup } from "telegraf";
+import { logger } from "../utils/logger.js";
+import { placeOrder } from "../services/placeOrder.js";
 
 // In-memory session store
 const sessions = {};
@@ -9,7 +8,7 @@ const sessions = {};
 const leverageOptions = [1, 2, 5, 10, 20];
 
 export default function registerShortHandler(bot) {
-  bot.command('short', async (ctx) => {
+  bot.command("short", async (ctx) => {
     const telegramId = ctx.from.id;
     const parts = ctx.message.text.trim().split(/\s+/);
 
@@ -20,100 +19,86 @@ export default function registerShortHandler(bot) {
       const margin = parseFloat(parts[3]);
 
       const ticker = rawTicker.toUpperCase();
-      const leverage = parseInt(rawLeverage.toLowerCase().replace('x', ''), 10);
-
-      const ok = await hasSufficientBalance(telegramId, margin);
-      if (!ok) {
-        return ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-      }
+      const leverage = parseInt(rawLeverage.toLowerCase().replace("x", ""), 10);
 
       return await confirmOrder(ctx, telegramId, {
-        side: 'short',
+        side: "short",
         ticker,
         leverage,
-        margin
+        margin,
       });
     }
 
     // ------ INTERACTIF FLOW ------
-    sessions[telegramId] = { action: 'short', step: 'chooseTicker', data: {} };
-    await ctx.reply(
-      '✏️ Please type the *ticker* (e.g. BTC, ETH, SOL)',
-      { parse_mode: 'Markdown' }
-    );
+    sessions[telegramId] = { action: "short", step: "chooseTicker", data: {} };
+    await ctx.reply("✏️ Please type the *ticker* (e.g. BTC, ETH, SOL)", {
+      parse_mode: "Markdown",
+    });
   });
 
   // TEXT input from user (ticker or margin)
-  bot.on('text', async (ctx) => {
+  bot.on("text", async (ctx) => {
     const telegramId = ctx.from.id;
     const session = sessions[telegramId];
     if (!session) return;
 
     try {
-      if (session.step === 'chooseTicker') {
+      if (session.step === "chooseTicker") {
         const ticker = ctx.message.text.trim().toUpperCase();
         session.data.ticker = ticker;
-        session.step = 'chooseLeverage';
+        session.step = "chooseLeverage";
 
         const buttons = leverageOptions.map((lv) =>
           Markup.button.callback(`${lv}x`, `LEV_${lv}`)
         );
-        return ctx.reply(
-          `Leverage for *${ticker}* ?`,
-          { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [buttons] } }
-        );
+        return ctx.reply(`Leverage for *${ticker}* ?`, {
+          parse_mode: "Markdown",
+          reply_markup: { inline_keyboard: [buttons] },
+        });
       }
 
-      if (session.step === 'chooseMargin') {
+      if (session.step === "chooseMargin") {
         const margin = parseFloat(ctx.message.text.trim());
         if (isNaN(margin) || margin <= 0) {
-          return ctx.reply('❗️Please enter a valid number for margin.');
-        }
-
-        // balance check
-        const ok = await hasSufficientBalance(telegramId, margin);
-        if (!ok) {
-          await ctx.reply(`❌ Not enough balance to use ${margin} USDC as margin.`);
-          delete sessions[telegramId];
-          return;
+          return ctx.reply("❗️Please enter a valid number for margin.");
         }
 
         session.data.margin = margin;
-        await confirmOrder(ctx, telegramId, { side: 'short', ...session.data });
+        await confirmOrder(ctx, telegramId, { side: "short", ...session.data });
         delete sessions[telegramId];
       }
     } catch (error) {
-      logger.error('Error in short flow (text)', error);
+      logger.error("Error in short flow (text)", error);
       delete sessions[telegramId];
-      await ctx.reply('❌ Something went wrong.');
+      await ctx.reply("❌ Something went wrong.");
     }
   });
 
   // CALLBACKS (leverage + confirm/cancel)
-  bot.on('callback_query', async (ctx) => {
+  bot.on("callback_query", async (ctx) => {
     const telegramId = ctx.from.id;
     const data = ctx.callbackQuery.data;
     const session = sessions[telegramId];
 
-    if (!session || session.action !== 'short') return;
+    if (!session || session.action !== "short") return;
 
     try {
       // Leverage
-      if (data.startsWith('LEV_') && session.step === 'chooseLeverage') {
-        const leverage = parseInt(data.replace('LEV_', ''), 10);
+      if (data.startsWith("LEV_") && session.step === "chooseLeverage") {
+        const leverage = parseInt(data.replace("LEV_", ""), 10);
         session.data.leverage = leverage;
-        session.step = 'chooseMargin';
+        session.step = "chooseMargin";
 
         await ctx.answerCbQuery();
         return ctx.reply(
           `💰 Enter the *margin* in USDC for ${session.data.ticker} (ex: 50)`,
-          { parse_mode: 'Markdown' }
+          { parse_mode: "Markdown" }
         );
       }
 
-      if (data === 'CONFIRM_SHORT') {
-        await ctx.answerCbQuery('Order confirmed ✅');
-        
+      if (data === "CONFIRM_SHORT") {
+        await ctx.answerCbQuery("Order confirmed ✅");
+
         try {
           const resp = await placeOrder(
             telegramId,
@@ -125,27 +110,31 @@ export default function registerShortHandler(bot) {
 
           await ctx.reply(`✅ Short order sent! Good luck!`);
         } catch (err) {
-          logger.error('Error placing short order', err);
-          await ctx.reply('❌ Error placing short order.');
+          logger.error("Error placing short order", err);
+          await ctx.reply("❌ Error placing short order.");
         }
         delete sessions[telegramId];
       }
 
-      if (data === 'CANCEL_SHORT') {
-        await ctx.answerCbQuery('Cancelled');
-        await ctx.reply('❌ Order cancelled.');
+      if (data === "CANCEL_SHORT") {
+        await ctx.answerCbQuery("Cancelled");
+        await ctx.reply("❌ Order cancelled.");
         delete sessions[telegramId];
       }
     } catch (error) {
-      logger.error('Error in short flow (cb)', error);
+      logger.error("Error in short flow (cb)", error);
       delete sessions[telegramId];
-      await ctx.reply('❌ Something went wrong.');
+      await ctx.reply("❌ Something went wrong.");
     }
   });
 }
 
 // -----------------------------------------------------------
-async function confirmOrder(ctx, telegramId, { side, ticker, leverage, margin }) {
+async function confirmOrder(
+  ctx,
+  telegramId,
+  { side, ticker, leverage, margin }
+) {
   const size = margin * leverage;
   const message = `*Confirm ${side.toUpperCase()} order*
 Ticker: ${ticker}
@@ -155,16 +144,16 @@ Margin: ${margin} USDC
 
 ✅ Confirm / ❌ Cancel`;
 
-  sessions[telegramId] = { action: side, step: 'confirm' };
+  sessions[telegramId] = { action: side, step: "confirm" };
 
-  const confirmCb = side === 'short' ? 'CONFIRM_SHORT' : 'CONFIRM_LONG';
-  const cancelCb  = side === 'short' ? 'CANCEL_SHORT'  : 'CANCEL_LONG';
+  const confirmCb = side === "short" ? "CONFIRM_SHORT" : "CONFIRM_LONG";
+  const cancelCb = side === "short" ? "CANCEL_SHORT" : "CANCEL_LONG";
 
   await ctx.replyWithMarkdown(
     message,
     Markup.inlineKeyboard([
-      [Markup.button.callback('✅ Confirm', confirmCb)],
-      [Markup.button.callback('❌ Cancel', cancelCb)]
+      [Markup.button.callback("✅ Confirm", confirmCb)],
+      [Markup.button.callback("❌ Cancel", cancelCb)],
     ])
   );
 }
