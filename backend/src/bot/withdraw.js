@@ -81,11 +81,11 @@ export default function registerWithdrawHandler(bot) {
   });
 
   // Handle text input for withdraw flow
-  bot.on("text", async (ctx) => {
+  bot.on("text", async (ctx, next) => {
     const telegramId = ctx.from.id;
     const state = withdrawState.get(telegramId);
     if (!state) {
-      return; // not in a withdraw flow; ignore here and let other handlers work
+      return next(); // not in a withdraw flow; pass to next handler
     }
     try {
       const text = (ctx.message?.text || "").trim();

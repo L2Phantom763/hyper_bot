@@ -45,10 +45,10 @@ export default function registerLongHandler(bot) {
   });
 
   // Handle user's reply (ticker or margin depending on step)
-  bot.on("text", async (ctx) => {
+  bot.on("text", async (ctx, next) => {
     const telegramId = ctx.from.id;
     const session = sessions[telegramId];
-    if (!session) return; // not in a flow
+    if (!session) return next(); // not in a flow - pass to next handler
 
     try {
       // STEP 1 ✅  TICKER
@@ -92,13 +92,13 @@ export default function registerLongHandler(bot) {
   });
 
   // Handle inline callbacks (leverage + confirmation)
-  bot.on("callback_query", async (ctx) => {
+  bot.on("callback_query", async (ctx, next) => {
     const telegramId = ctx.from.id;
     const data = ctx.callbackQuery.data;
     const session = sessions[telegramId];
 
     // Catch only long flow callbacks
-    if (!session || session.action !== "long") return;
+    if (!session || session.action !== "long") return next();
 
     try {
       // LEVERAGE SELECTED

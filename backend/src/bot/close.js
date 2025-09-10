@@ -52,11 +52,11 @@ export default function registerCloseHandler(bot) {
   });
 
   // Callback handler for closing a selected position
-  bot.on('callback_query', async (ctx) => {
+  bot.on('callback_query', async (ctx, next) => {
     const telegramId = ctx.from.id;
     const data = ctx.callbackQuery.data;
 
-    if (!data.startsWith('CLOSE_')) return;
+    if (!data.startsWith('CLOSE_')) return next();
 
     const ticker = data.replace('CLOSE_', '');
     const positions = closeSessions[telegramId];

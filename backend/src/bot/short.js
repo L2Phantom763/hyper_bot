@@ -37,10 +37,10 @@ export default function registerShortHandler(bot) {
   });
 
   // TEXT input from user (ticker or margin)
-  bot.on("text", async (ctx) => {
+  bot.on("text", async (ctx, next) => {
     const telegramId = ctx.from.id;
     const session = sessions[telegramId];
-    if (!session) return;
+    if (!session) return next();
 
     try {
       if (session.step === "chooseTicker") {
@@ -75,12 +75,12 @@ export default function registerShortHandler(bot) {
   });
 
   // CALLBACKS (leverage + confirm/cancel)
-  bot.on("callback_query", async (ctx) => {
+  bot.on("callback_query", async (ctx, next) => {
     const telegramId = ctx.from.id;
     const data = ctx.callbackQuery.data;
     const session = sessions[telegramId];
 
-    if (!session || session.action !== "short") return;
+    if (!session || session.action !== "short") return next();
 
     try {
       // Leverage
