@@ -4,6 +4,7 @@ const commands = [
   { cmd: "/positions", desc: "Check your open positions" },
   { cmd: "/balance", desc: "Check your account balance" },
   { cmd: "/wallet", desc: "View your wallet address" },
+  { cmd: "/withdraw", desc: "Withdraw funds to external address" },
   { cmd: "/help", desc: "Show this help message" },
 ];
 
