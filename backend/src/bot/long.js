@@ -82,7 +82,6 @@ export default function registerLongHandler(bot) {
           side: "long",
           ...session.data,
         });
-        delete sessions[telegramId];
       }
     } catch (error) {
       logger.error("Error in long flow (text)", error);

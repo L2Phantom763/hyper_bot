@@ -24,6 +24,43 @@ export function parsePerpBalances(state) {
 }
 
 /**
+ * Prix perps Hyperliquid:
+ * - max 5 chiffres significatifs (sauf entier, toujours OK)
+ * - max décimales = 6 - szDecimals
+ * Renvoie une string sans zéros traînants.
+ */
+export function roundPricePerp(p, szDecimals /*, isBuy */) {
+  const MAX_DECIMALS_PERP = 6;
+  const allowedDecimals = Math.max(0, MAX_DECIMALS_PERP - szDecimals);
+
+  const absP = Math.abs(p);
+  const intDigits = Math.max(1, Math.floor(absP).toString().length);
+
+  // 5 chiffres significatifs max
+  let decimals = Math.max(0, 5 - intDigits);
+  decimals = Math.min(decimals, allowedDecimals);
+
+  // Arrondi à 'decimals' décimales
+  const factor = 10 ** decimals;
+  let rounded = Math.round(p * factor) / factor;
+
+  // Si la partie entière a ≥ 6 chiffres, on force l'entier (toujours valide)
+  const finalIntDigits = Math.max(
+    1,
+    Math.floor(Math.abs(rounded)).toString().length
+  );
+  if (finalIntDigits >= 6) {
+    rounded = Math.round(rounded);
+    decimals = 0;
+  }
+
+  // String propre (pas d'exponentiel, pas de zéros inutiles)
+  const out =
+    decimals > 0 ? rounded.toFixed(decimals) : Math.round(rounded).toString();
+  return trimTrailingZeros(out);
+}
+
+/**
  * Compute the minimum leverage required to reach the notional minimum
  * considering size quantization (szDecimals) and price rounding.
  */
@@ -137,7 +174,11 @@ export async function validateOrderAndBuild(
   const rawSz = (margin * leverage) / pWithSlip;
 
   // 4) Quantization
-  const p = toFixedNoExp(pWithSlip, pxDecimals);
+  // Price: règles différentes perps vs spot
+  const p = isPerp
+    ? roundPricePerp(pWithSlip, szDecimals /*, isBuy */)
+    : toFixedNoExp(pWithSlip, pxDecimals);
+
   const s = toFixedNoExp(quantizeDown(rawSz, szDecimals), szDecimals);
 
   if (Number(s) <= 0) {

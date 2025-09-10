@@ -3,6 +3,7 @@ import { decryptAES } from "../utils/aes.js";
 import { exchClient, infoClient } from "../utils/client.js";
 import sql from "../db/db.js";
 import { validateOrderAndBuild } from "./helper.js";
+import { hasSufficientPerpMargin } from "../utils/balances.js";
 
 /**
  * Place an order on Hyperliquid
