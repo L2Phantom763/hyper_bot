@@ -65,7 +65,6 @@ export default function registerShortHandler(bot) {
 
         session.data.margin = margin;
         await confirmOrder(ctx, telegramId, { side: "short", ...session.data });
-        delete sessions[telegramId];
       }
     } catch (error) {
       logger.error("Error in short flow (text)", error);
@@ -111,7 +110,7 @@ export default function registerShortHandler(bot) {
           await ctx.reply(`✅ Short order sent! Good luck!`);
         } catch (err) {
           logger.error("Error placing short order", err);
-          await ctx.reply("❌ Error placing short order.");
+          await ctx.reply("❌ Failed to place order: ${err.message}");
         }
         delete sessions[telegramId];
       }
@@ -136,6 +135,14 @@ async function confirmOrder(
   { side, ticker, leverage, margin }
 ) {
   const size = margin * leverage;
+
+  // (Optionnel mais utile) même garde-fou que le /long
+  if (size < 10) {
+    return ctx.reply(
+      `❗️ Minimum notional size for ${ticker} is 10 USDC. Please try again.`
+    );
+  }
+
   const message = `*Confirm ${side.toUpperCase()} order*
 Ticker: ${ticker}
 Leverage: ${leverage}x
@@ -144,7 +151,12 @@ Margin: ${margin} USDC
 
 ✅ Confirm / ❌ Cancel`;
 
-  sessions[telegramId] = { action: side, step: "confirm" };
+  // ✅ Conserver les données pour le callback
+  sessions[telegramId] = {
+    action: side,
+    step: "confirm",
+    data: { ticker, leverage, margin },
+  };
 
   const confirmCb = side === "short" ? "CONFIRM_SHORT" : "CONFIRM_LONG";
   const cancelCb = side === "short" ? "CANCEL_SHORT" : "CANCEL_LONG";
