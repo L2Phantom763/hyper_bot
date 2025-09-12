@@ -110,7 +110,7 @@ export default function registerShortHandler(bot) {
           await ctx.reply(`✅ Short order sent! Good luck!`);
         } catch (err) {
           logger.error("Error placing short order", err);
-          await ctx.reply("❌ Failed to place order: ${err.message}");
+          await ctx.reply(`❌ Failed to place order: ${err.message}`);
         }
         delete sessions[telegramId];
       }
