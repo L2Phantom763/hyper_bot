@@ -17,6 +17,7 @@ import registerCloseHandler from "./close.js";
 import { handleHelp } from "./help.js";
 import { handleRefreshBalance } from "./refresh.js";
 import registerWithdrawHandler, { handleWithdraw } from "./withdraw.js";
+import { registerChartHandler } from "./chart.js";
 
 /**
  * Handle the /start command
@@ -131,5 +132,6 @@ export function registerHandlers(bot) {
   registerLongHandler(bot);
   registerShortHandler(bot);
   registerCloseHandler(bot);
+  registerChartHandler(bot);
   logger.info("Bot handlers registered successfully");
 }

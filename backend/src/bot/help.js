@@ -5,6 +5,7 @@ const commands = [
   { cmd: "/balance", desc: "Check your account balance" },
   { cmd: "/wallet", desc: "View your wallet address" },
   { cmd: "/withdraw", desc: "Withdraw funds to external address" },
+  { cmd: "/chart [symbol] [timeframe]", desc: "Generate cryptocurrency chart (e.g. /chart eth 1h)" },
   { cmd: "/help", desc: "Show this help message" },
 ];
 
