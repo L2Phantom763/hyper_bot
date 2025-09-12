@@ -29,6 +29,20 @@ async function main() {
 
     registerHandlers(bot);
 
+    // Set up bot commands menu
+    await bot.telegram.setMyCommands([
+      { command: 'start', description: 'Start the bot and view your wallet' },
+      { command: 'markets', description: 'View available trading markets' },
+      { command: 'positions', description: 'Check your open positions' },
+      { command: 'balance', description: 'Check your account balance' },
+      { command: 'wallet', description: 'View your wallet address' },
+      { command: 'withdraw', description: 'Withdraw funds to external address' },
+      { command: 'chart', description: 'Generate cryptocurrency chart' },
+      { command: 'help', description: 'Show all available commands' }
+    ]);
+    
+    logger.info("Bot commands menu configured successfully");
+
     // Enable graceful shutdown
     process.once("SIGINT", () => {
       logger.info("Received SIGINT, stopping bot gracefully...");
