@@ -147,13 +147,13 @@ export async function closePosition(telegramId, ticker, percent = 100) {
   // 6) Envoi ordre
   const resp = await client.order(payload);
 
-  const orderPx = Number(payload?.orders?.[0]?.p);
-  let avgFillPx = getAvgFillPx(resp, orderPx);
-  if (!Number.isFinite(avgFillPx)) {
-    // dernier recours: mid
-    const mid = await safeMid(infoClient, T);
-    if (Number.isFinite(mid)) avgFillPx = mid;
-  }
+  // const orderPx = Number(payload?.orders?.[0]?.p);
+  // let avgFillPx = getAvgFillPx(resp, orderPx);
+  // if (!Number.isFinite(avgFillPx)) {
+  //   // dernier recours: mid
+  //   const mid = await safeMid(infoClient, T);
+  //   if (Number.isFinite(mid)) avgFillPx = mid;
+  // }
 
   // 7) DB : marquer comme "closed" si 100% (sinon "partial_close")
   if (clampedPct >= 99.9) {
