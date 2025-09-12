@@ -32,6 +32,9 @@ async function main() {
     // Set up bot commands menu
     await bot.telegram.setMyCommands([
       { command: 'start', description: 'Start the bot and view your wallet' },
+      { command: 'long', description: 'Open long position' },
+      { command: 'short', description: 'Open short position' },
+      { command: 'close', description: 'Close a position' },
       { command: 'markets', description: 'View available trading markets' },
       { command: 'positions', description: 'Check your open positions' },
       { command: 'balance', description: 'Check your account balance' },
