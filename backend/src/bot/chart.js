@@ -13,7 +13,7 @@ function parseChartCommand(commandText) {
   const params = args.slice(1);
   
   let symbol = 'btc';
-  let interval = '1d';
+  let interval = '1h';
   
   if (params.length === 1) {
     // Could be either symbol or interval
@@ -37,13 +37,35 @@ function parseChartCommand(commandText) {
 }
 
 /**
- * Get supported symbols for validation
+ * Get supported symbols for validation (Hyperliquid supported tokens)
  */
 function getSupportedSymbols() {
   return [
-    'btc', 'eth', 'bnb', 'ada', 'sol', 'dot', 'avax', 'matic', 'link', 'uni',
-    'ltc', 'bch', 'etc', 'xlm', 'xrp', 'doge', 'shib', 'atom', 'near', 'ftm',
-    'algo', 'vet', 'mana', 'sand', 'gala', 'chz', 'enj', 'bat', 'zec', 'dash'
+    'aave', 'ace', 'ada', 'ai', 'ai16z', 'aixbt', 'algo', 'alt', 'anime', 'ape', 'apt', 'ar', 'arb', 'ark', 'atom', 'avax', 
+    'baby', 'badger', 'banana', 'bch', 'bera', 'bigtime', 'bio', 'blast', 'blur', 'blz', 'bnb', 'bnt', 'bome', 'brett', 'bsv', 'btc', 
+    'cake', 'canto', 'cati', 'celo', 'cfx', 'chillguy', 'comp', 'crv', 'cyber', 
+    'doge', 'dood', 'dot', 'dydx', 'dym', 
+    'eigen', 'ena', 'ens', 'etc', 'eth', 'ethfi', 
+    'fartcoin', 'fet', 'fil', 'friend', 'ftm', 'ftt', 'fxs', 
+    'gala', 'gas', 'gmt', 'gmx', 'goat', 'grass', 'griffain', 
+    'hbar', 'hmstr', 'hpos', 'hype', 'hyper', 
+    'ilv', 'imx', 'init', 'inj', 'io', 'iota', 'ip', 
+    'jelly', 'jto', 'jup', 
+    'kaito', 'kas', 'kbonk', 'kdogs', 'kfloki', 'klunc', 'kneiro', 'kpepe', 'kshib',
+    'launchcoin', 'layer', 'ldo', 'linea', 'link', 'lista', 'loom', 'ltc', 
+    'manta', 'matic', 'mav', 'mavia', 'me', 'melania', 'meme', 'merl', 'mew', 'mina', 'mkr', 'mnt', 'moodeng', 'morpho', 'move', 'myro', 
+    'near', 'neiroeth', 'neo', 'nfti', 'nil', 'not', 'ntrn', 'nxpc', 
+    'ogn', 'om', 'omni', 'ondo', 'op', 'orbs', 'ordi', 'ox', 
+    'pandora', 'paxg', 'pendle', 'pengu', 'people', 'pixel', 'pnut', 'pol', 'polyx', 'popcat', 'prompt', 'prove', 'pump', 'purr', 'purr/usdc', 'pyth', 
+    'rdnt', 'render', 'req', 'resolv', 'rez', 'rlb', 'rndr', 'rsr', 'rune', 
+    's', 'saga', 'sand', 'scr', 'sei', 'shia', 'snx', 'sol', 'soph', 'spx', 'stg', 'strax', 'strk', 'stx', 'sui', 'super', 'sushi', 'syrup', 
+    'tao', 'tia', 'tnsr', 'ton', 'trb', 'trump', 'trx', 'tst', 'turbo', 
+    'uma', 'uni', 'unibot', 'ustc', 'usual', 
+    'vine', 'virtual', 'vvv', 
+    'w', 'wct', 'wif', 'wld', 'wlfi', 
+    'xai', 'xlm', 'xpl', 'xrp', 
+    'ygg', 'yzy', 
+    'zen', 'zerebro', 'zeta', 'zk', 'zora', 'zro'
   ];
 }
 
@@ -66,16 +88,7 @@ export async function handleChart(ctx) {
     const supportedSymbols = getSupportedSymbols();
     if (!supportedSymbols.includes(symbol)) {
       return await ctx.reply(
-        `❌ Unsupported cryptocurrency: ${symbol.toUpperCase()}\n\n` +
-        `Supported symbols: ${supportedSymbols.slice(0, 20).join(', ').toUpperCase()}...`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              { text: "📊 BTC Chart", callback_data: "chart_btc_1d" },
-              { text: "📊 ETH Chart", callback_data: "chart_eth_1d" }
-            ]]
-          }
-        }
+        `❌ Unsupported cryptocurrency: ${symbol.toUpperCase()}`
       );
     }
 

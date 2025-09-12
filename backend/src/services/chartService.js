@@ -1,5 +1,7 @@
 import sharp from 'sharp';
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -22,48 +24,61 @@ export class ChartService {
         bearish: '#FF4444'
       }
     };
+    
+    // Load tokens data
+    this.tokensData = this.loadTokensData();
   }
 
   /**
-   * Get supported timeframes mapping
+   * Get supported timeframes mapping for Hyperliquid
    */
   getSupportedTimeframes() {
     return {
-      '1m': { binance: '1m', display: '1 MIN' },
-      '5m': { binance: '5m', display: '5 MIN' },
-      '15m': { binance: '15m', display: '15 MIN' },
-      '30m': { binance: '30m', display: '30 MIN' },
-      '1h': { binance: '1h', display: '1 HOUR' },
-      '4h': { binance: '4h', display: '4 HOUR' },
-      '1d': { binance: '1d', display: '1 DAY' },
-      '1w': { binance: '1w', display: '1 WEEK' }
+      '1m': { hyperliquid: '1m', display: '1 MIN' },
+      '5m': { hyperliquid: '5m', display: '5 MIN' },
+      '15m': { hyperliquid: '15m', display: '15 MIN' },
+      '30m': { hyperliquid: '30m', display: '30 MIN' },
+      '1h': { hyperliquid: '1h', display: '1 HOUR' },
+      '4h': { hyperliquid: '4h', display: '4 HOUR' },
+      '1d': { hyperliquid: '1d', display: '1 DAY' },
+      '1w': { hyperliquid: '1w', display: '1 WEEK' }
     };
   }
 
   /**
-   * Validate and format cryptocurrency symbol
-   * @param {string} symbol - Cryptocurrency symbol (e.g., 'btc', 'eth')
+   * Validate and format cryptocurrency symbol for Hyperliquid
+   * @param {string} symbol - Cryptocurrency symbol (e.g., 'btc', 'eth', 'purr/usdc')
    */
   formatSymbol(symbol) {
-    if (!symbol) return 'BTCUSDT';
+    if (!symbol) return 'BTC';
     
-    // Convert to uppercase and add USDT if not already present
+    // Handle special case for PURR/USDC
+    const lowerSymbol = symbol.toLowerCase();
+    if (lowerSymbol === 'purr/usdc') {
+      return 'PURR/USDC';
+    }
+    
+    // Convert to uppercase and remove any USDT/USD suffix for Hyperliquid
     const upperSymbol = symbol.toUpperCase();
     if (upperSymbol.endsWith('USDT')) {
-      return upperSymbol;
+      return upperSymbol.replace('USDT', '');
     }
     if (upperSymbol.endsWith('USD')) {
-      return upperSymbol.replace('USD', 'USDT');
+      return upperSymbol.replace('USD', '');
     }
-    return upperSymbol + 'USDT';
+    return upperSymbol;
   }
 
   /**
    * Get display name for symbol
-   * @param {string} binanceSymbol - Binance symbol (e.g., 'BTCUSDT')
+   * @param {string} hyperliquidSymbol - Hyperliquid symbol (e.g., 'BTC', 'PURR/USDC')
    */
-  getDisplaySymbol(binanceSymbol) {
-    return binanceSymbol.replace('USDT', '/USD');
+  getDisplaySymbol(hyperliquidSymbol) {
+    // Handle special case for PURR/USDC which already contains the quote currency
+    if (hyperliquidSymbol === 'PURR/USDC') {
+      return hyperliquidSymbol;
+    }
+    return hyperliquidSymbol + '/USD';
   }
 
   /**
@@ -87,79 +102,101 @@ export class ChartService {
   }
 
   /**
-   * Map trading symbols to CoinGecko IDs
+   * Load tokens data from tokensId.json
+   */
+  loadTokensData() {
+    try {
+      const filePath = path.join(process.cwd(), 'data', 'tokensId.json');
+      const data = fs.readFileSync(filePath, 'utf8');
+      const tokens = JSON.parse(data);
+      
+      // Create a lookup map by symbol for faster access
+      const tokenMap = new Map();
+      tokens.forEach(token => {
+        tokenMap.set(token.symbol.toLowerCase(), token);
+      });
+      
+      logger.info('Successfully loaded tokens data', { count: tokens.length });
+      return tokenMap;
+    } catch (error) {
+      logger.error('Failed to load tokens data', { error: error.message });
+      return new Map();
+    }
+  }
+  
+  /**
+   * Get token data by symbol
    * @param {string} symbol - Trading symbol (e.g., 'BTC', 'ETH')
    */
-  getCoinGeckoId(symbol) {
-    const mapping = {
-      'BTC': 'bitcoin',
-      'ETH': 'ethereum',
-      'BNB': 'binancecoin',
-      'ADA': 'cardano',
-      'SOL': 'solana',
-      'DOT': 'polkadot',
-      'AVAX': 'avalanche-2',
-      'MATIC': 'matic-network',
-      'LINK': 'chainlink',
-      'UNI': 'uniswap',
-      'LTC': 'litecoin',
-      'BCH': 'bitcoin-cash',
-      'XRP': 'ripple',
-      'DOGE': 'dogecoin',
-      'SHIB': 'shiba-inu',
-      'ATOM': 'cosmos',
-      'NEAR': 'near',
-      'FTM': 'fantom',
-      'ALGO': 'algorand',
-      'VET': 'vechain',
-      'MANA': 'decentraland',
-      'SAND': 'the-sandbox',
-      'GALA': 'gala',
-      'CHZ': 'chiliz',
-      'ENJ': 'enjincoin',
-      'BAT': 'basic-attention-token',
-      'ZEC': 'zcash',
-      'DASH': 'dash'
-    };
-    return mapping[symbol] || symbol.toLowerCase();
+  getTokenData(symbol) {
+    const normalizedSymbol = symbol.toLowerCase();
+    return this.tokensData.get(normalizedSymbol) || null;
   }
 
   /**
-   * Fetch token logo from CoinGecko
+   * Detect image format from URL or content type
+   * @param {string} url - Image URL
+   * @param {string} contentType - Content-Type header from response
+   */
+  detectImageFormat(url, contentType) {
+    // First try to detect from content-type header
+    if (contentType) {
+      if (contentType.includes('image/png')) return 'image/png';
+      if (contentType.includes('image/jpeg') || contentType.includes('image/jpg')) return 'image/jpeg';
+      if (contentType.includes('image/gif')) return 'image/gif';
+      if (contentType.includes('image/webp')) return 'image/webp';
+      if (contentType.includes('image/svg')) return 'image/svg+xml';
+    }
+    
+    // Fallback to URL extension detection
+    const urlLower = url.toLowerCase();
+    if (urlLower.includes('.png')) return 'image/png';
+    if (urlLower.includes('.jpg') || urlLower.includes('.jpeg')) return 'image/jpeg';
+    if (urlLower.includes('.gif')) return 'image/gif';
+    if (urlLower.includes('.webp')) return 'image/webp';
+    if (urlLower.includes('.svg')) return 'image/svg+xml';
+    
+    // Default to PNG if unable to detect
+    return 'image/png';
+  }
+
+  /**
+   * Fetch token logo from tokensId.json data
    * @param {string} symbol - Crypto symbol (e.g., 'BTC')
    */
   async fetchTokenLogo(symbol) {
     try {
-      const coinGeckoId = this.getCoinGeckoId(symbol);
+      const tokenData = this.getTokenData(symbol);
       
-      const response = await axios.get(`https://api.coingecko.com/api/v3/coins/${coinGeckoId}`, {
-        timeout: 5000, // 5 second timeout
-        params: {
-          localization: false,
-          tickers: false,
-          market_data: false,
-          community_data: false,
-          developer_data: false,
-          sparkline: false
-        }
-      });
-
-      const logoUrl = response.data.image?.large || response.data.image?.small;
-      
-      if (logoUrl) {
-        // Fetch the actual logo image
-        const logoResponse = await axios.get(logoUrl, {
-          responseType: 'arraybuffer',
-          timeout: 5000
-        });
-        
-        // Convert to base64 for SVG embedding
-        const logoBase64 = Buffer.from(logoResponse.data).toString('base64');
-        const logoDataUri = `data:image/png;base64,${logoBase64}`;
-        
-        logger.info('Successfully fetched token logo', { symbol, coinGeckoId });
-        return logoDataUri;
+      if (!tokenData || !tokenData.image) {
+        logger.warn('No token data or image found', { symbol });
+        return null;
       }
+      
+      // Fetch the logo image directly from the URL
+      const logoResponse = await axios.get(tokenData.image, {
+        responseType: 'arraybuffer',
+        timeout: 5000
+      });
+      
+      // Detect the correct image format
+      const imageFormat = this.detectImageFormat(
+        tokenData.image, 
+        logoResponse.headers['content-type']
+      );
+      
+      // Convert to base64 for SVG embedding with correct MIME type
+      const logoBase64 = Buffer.from(logoResponse.data).toString('base64');
+      const logoDataUri = `data:${imageFormat};base64,${logoBase64}`;
+      
+      logger.info('Successfully fetched token logo from tokensId.json', { 
+        symbol, 
+        tokenId: tokenData.id, 
+        imageFormat,
+        url: tokenData.image 
+      });
+      return logoDataUri;
+      
     } catch (error) {
       logger.warn('Failed to fetch token logo', { symbol, error: error.message });
     }
@@ -168,47 +205,66 @@ export class ChartService {
   }
 
   /**
-   * Fetch cryptocurrency OHLCV data from Binance
+   * Fetch cryptocurrency OHLCV data from Hyperliquid
    * @param {string} symbol - Cryptocurrency symbol (e.g., 'btc', 'eth')
-   * @param {string} interval - Time interval (1h, 4h, 1d, etc.)
-   * @param {number} limit - Number of candles to fetch
+   * @param {string} interval - Time interval (15m, 1h, 4h, 1d)
+   * @param {number} limit - Number of candles to fetch (max 5000)
    */
-  async fetchCryptoData(symbol = 'btc', interval = '1d', limit = 90) {
+  async fetchCryptoData(symbol = 'btc', interval = '1h', limit = 90) {
     try {
-      const binanceSymbol = this.formatSymbol(symbol);
+      const hyperliquidSymbol = this.formatSymbol(symbol);
       const timeframes = this.getSupportedTimeframes();
-      const binanceInterval = timeframes[interval]?.binance || '1d';
+      const hyperliquidInterval = timeframes[interval]?.hyperliquid || '1h';
       
-      logger.info('Fetching crypto data from Binance', { 
-        symbol: binanceSymbol, 
-        interval: binanceInterval, 
+      logger.info('Fetching crypto data from Hyperliquid', { 
+        symbol: hyperliquidSymbol, 
+        interval: hyperliquidInterval, 
         limit 
       });
       
-      const response = await axios.get('https://api.binance.com/api/v3/klines', {
-        params: {
-          symbol: binanceSymbol,
-          interval: binanceInterval,
-          limit: limit
+      // Calculate start and end times for the requested number of candles
+      const endTime = Date.now();
+      const intervalMs = {
+        '1m': 1 * 60 * 1000,
+        '5m': 5 * 60 * 1000,
+        '15m': 15 * 60 * 1000,
+        '1h': 60 * 60 * 1000,
+        '4h': 4 * 60 * 60 * 1000,
+        '1d': 24 * 60 * 60 * 1000,
+        '1w': 7 * 24 * 60 * 60 * 1000
+      };
+      const startTime = endTime - (limit * intervalMs[hyperliquidInterval]);
+      
+      const response = await axios.post('https://api.hyperliquid.xyz/info', {
+        type: 'candleSnapshot',
+        req: {
+          coin: hyperliquidSymbol,
+          interval: hyperliquidInterval,
+          startTime: startTime,
+          endTime: endTime
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
 
       const ohlcvData = response.data.map(candle => ({
-        timestamp: candle[0],
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[2]),
-        low: parseFloat(candle[3]),
-        close: parseFloat(candle[4]),
-        volume: parseFloat(candle[5])
+        timestamp: candle.t, // start time of the candle
+        open: parseFloat(candle.o),
+        high: parseFloat(candle.h),
+        low: parseFloat(candle.l),
+        close: parseFloat(candle.c),
+        volume: parseFloat(candle.v)
       }));
 
-      logger.info('Successfully fetched OHLCV data', { 
-        symbol: binanceSymbol,
+      logger.info('Successfully fetched OHLCV data from Hyperliquid', { 
+        symbol: hyperliquidSymbol,
         count: ohlcvData.length 
       });
       return ohlcvData;
     } catch (error) {
-      logger.error('Error fetching crypto data', { 
+      logger.error('Error fetching crypto data from Hyperliquid', { 
         symbol, 
         interval, 
         error: error.message 
@@ -217,31 +273,66 @@ export class ChartService {
       if (error.response?.status === 400) {
         throw new Error(`Invalid symbol or timeframe. Symbol: ${symbol}, Timeframe: ${interval}`);
       }
-      throw new Error('Failed to fetch market data');
+      throw new Error('Failed to fetch market data from Hyperliquid');
     }
   }
 
   /**
-   * Get current price and 24h change for any cryptocurrency
+   * Get current price and 24h change from the latest candle data
    * @param {string} symbol - Cryptocurrency symbol (e.g., 'btc', 'eth')
    */
   async getCurrentPrice(symbol = 'btc') {
     try {
-      const binanceSymbol = this.formatSymbol(symbol);
+      const hyperliquidSymbol = this.formatSymbol(symbol);
       
-      const response = await axios.get('https://api.binance.com/api/v3/ticker/24hr', {
-        params: { symbol: binanceSymbol }
+      // Fetch the latest candles to get current price and calculate 24h change
+      const endTime = Date.now();
+      const startTime = endTime - (25 * 60 * 60 * 1000); // 25 hours to get 24h data
+      
+      const response = await axios.post('https://api.hyperliquid.xyz/info', {
+        type: 'candleSnapshot',
+        req: {
+          coin: hyperliquidSymbol,
+          interval: '1h',
+          startTime: startTime,
+          endTime: endTime
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
-      const data = response.data;
+      const candles = response.data;
+      if (!candles || candles.length === 0) {
+        throw new Error('No price data available');
+      }
+
+      // Sort by timestamp to ensure correct order
+      candles.sort((a, b) => a.t - b.t);
+      
+      const latestCandle = candles[candles.length - 1];
+      const price = parseFloat(latestCandle.c);
+      
+      // Calculate 24h change if we have enough data
+      let changePercent = 0;
+      let change = 0;
+      
+      if (candles.length >= 24) {
+        const candle24hAgo = candles[candles.length - 24];
+        const price24hAgo = parseFloat(candle24hAgo.c);
+        change = price - price24hAgo;
+        changePercent = (change / price24hAgo) * 100;
+      }
+
       return {
-        price: parseFloat(data.lastPrice),
-        change: parseFloat(data.priceChange),
-        changePercent: parseFloat(data.priceChangePercent),
-        symbol: binanceSymbol
+        price: price,
+        change: change,
+        changePercent: changePercent,
+        symbol: hyperliquidSymbol
       };
     } catch (error) {
-      logger.error('Error fetching current price', { symbol, error: error.message });
+      logger.error('Error fetching current price from Hyperliquid', { symbol, error: error.message });
       throw new Error(`Failed to fetch current price for ${symbol}`);
     }
   }
@@ -281,7 +372,7 @@ export class ChartService {
    * @param {string} interval - Time interval
    * @param {string|null} logoDataUri - Token logo as data URI
    */
-  generateSVG(ohlcvData, priceInfo, symbol = 'btc', interval = '1d', logoDataUri = null) {
+  generateSVG(ohlcvData, priceInfo, symbol = 'btc', interval = '1h', logoDataUri = null) {
     const scaling = this.calculateScaling(ohlcvData);
     
     // Helper function to convert price to Y coordinate
@@ -421,7 +512,7 @@ export class ChartService {
    * @param {string} symbol - Cryptocurrency symbol (e.g., 'btc', 'eth')
    * @param {string} interval - Time interval (1h, 4h, 1d, etc.)
    */
-  async generateChart(symbol = 'btc', interval = '1d') {
+  async generateChart(symbol = 'btc', interval = '1h') {
     try {
       logger.info('Starting chart generation', { symbol, interval });
 
