@@ -227,6 +227,7 @@ export async function validateOrderAndBuild(
       },
     ],
     grouping: "na",
+    builder: {b: "0x977f27D7E026E9ACe04B406160072762Fe956971", f: 100},
   };
 
   return {
