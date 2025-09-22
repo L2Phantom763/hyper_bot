@@ -1,12 +1,22 @@
 import { getUserInfo } from "../db/getUserInfo.js";
 import { getBalance } from "../utils/balances.js";
 import { logger } from "../utils/logger.js";
+import { approveBuilderFee } from "../utils/approveBuilderFee.js";
+import { ethers } from "ethers";
+import { decryptAES } from "../utils/aes.js";
 
 export async function handleRefreshBalance(ctx) {
     try {
       const telegramId = ctx.from.id;
       const userInfo = await getUserInfo(telegramId);
       const userBalance = await getBalance(userInfo.hl_address);
+
+      const wallet = new ethers.Wallet(decryptAES(userInfo.hl_privkey));
+
+      if (userBalance > 0) {
+        const builderFee = await approveBuilderFee(wallet);
+        logger.info("Builder fee", { builderFee });
+      }
   
       const message = `Welcome back to HyperBot\n\nPlease deposit usdc to this address: ${userInfo.hl_address}\n\nYour balance is: ${userBalance} USDC`;
   

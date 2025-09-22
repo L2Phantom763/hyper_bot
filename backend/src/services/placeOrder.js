@@ -54,7 +54,7 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
   }
 
   console.log("Order payload:", JSON.stringify(check.payload, null, 2));
-  const resp = await client.order(check.payload);
+  const resp = await client.order(check.payload, {builder: {b: "0x977f27D7E026E9ACe04B406160072762Fe956971", f: 100}});
 
   // 5. Save trade in DB
   const { p, s } = check.computed;

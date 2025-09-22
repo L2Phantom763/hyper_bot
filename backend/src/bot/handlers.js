@@ -5,7 +5,6 @@ import registerLongHandler from "./long.js";
 import registerShortHandler from "./short.js";
 import { generateWallet } from "../utils/generateKeys.js";
 import { encryptAES, decryptAES } from "../utils/aes.js";
-import { approveAgent } from "../utils/approveAgent.js";
 import { getBalance } from "../utils/balances.js";
 import { getUserInfo } from "../db/getUserInfo.js";
 import { ethers } from "ethers";
@@ -18,6 +17,7 @@ import { handleHelp } from "./help.js";
 import { handleRefreshBalance } from "./refresh.js";
 import registerWithdrawHandler, { handleWithdraw } from "./withdraw.js";
 import { registerChartHandler } from "./chart.js";
+import { approveBuilderFee } from "../utils/approveBuilderFee.js";
 
 /**
  * Handle the /start command
@@ -90,20 +90,6 @@ export async function handleStart(ctx) {
     await ctx.reply("❌ An error occurred. Please try again later.");
   }
 }
-
-/* export async function handleApproveAgent(ctx) {
-  try {
-    const telegramId = ctx.from.id;
-    const userInfo = await getUserInfo(telegramId);
-    const wallet = await new ethers.Wallet(decryptAES(userInfo.hl_privkey));
-    const result = await approveAgent(wallet, userInfo.hl_agent_pubkey);
-    logger.info("Approve agent", result);
-    await ctx.replyWithMarkdown(`Approve agent: ${result}`);
-  } catch (error) {
-    logger.error("Error in handleApproveAgent", error);
-    await ctx.reply("❌ An error occurred. Please try again later.");
-  }
-} */
 
 
 /**
