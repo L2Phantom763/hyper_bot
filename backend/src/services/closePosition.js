@@ -10,6 +10,7 @@ import {
   quantizeDown,
   roundPricePerp,
 } from "./helper.js";
+import { processFeeAndReferral } from "./referralService.js";
 
 function normalizeTicker(x = "") {
   const u = String(x).toUpperCase().trim();
@@ -147,13 +148,24 @@ export async function closePosition(telegramId, ticker, percent = 100) {
   // 6) Envoi ordre
   const resp = await client.order(payload);
 
-  // const orderPx = Number(payload?.orders?.[0]?.p);
-  // let avgFillPx = getAvgFillPx(resp, orderPx);
-  // if (!Number.isFinite(avgFillPx)) {
-  //   // dernier recours: mid
-  //   const mid = await safeMid(infoClient, T);
-  //   if (Number.isFinite(mid)) avgFillPx = mid;
-  // }
+  // Calculate notional value for fee tracking
+  const closePx = Number(payload?.orders?.[0]?.p || 0);
+  const closeSz = Number(payload?.orders?.[0]?.s || 0);
+  const closeNotional = closePx * closeSz;
+
+  // Track fees and referral earnings for close
+  if (closeNotional > 0) {
+    try {
+      const feeResult = await processFeeAndReferral(
+        user.id_user,
+        null, // No trade_id for closes (could be linked if needed)
+        closeNotional
+      );
+      console.log("Close fee and referral processed:", feeResult);
+    } catch (feeError) {
+      console.error("Error processing close fee/referral:", feeError);
+    }
+  }
 
   // 7) DB : marquer comme "closed" si 100% (sinon "partial_close")
   if (clampedPct >= 99.9) {

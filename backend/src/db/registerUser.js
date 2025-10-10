@@ -1,5 +1,6 @@
 import sql from "./db.js";
 import { logger } from "../utils/logger.js";
+import { generateReferralCode } from "../services/referralService.js";
 
 /**
  * Register or update a user in the database.
@@ -14,6 +15,8 @@ import { logger } from "../utils/logger.js";
  * - created_at timestamptz
  * - last_active timestamptz
  * - hl_agent_pk text
+ * - referral_code text (UNIQUE)
+ * - referred_by_user_id integer
  *
  * @param {Object} params
  * @param {number|string|bigint} params.telegramId - Telegram user id (int8/bigint)
@@ -22,6 +25,7 @@ import { logger } from "../utils/logger.js";
  * @param {string} [params.hlPrivkey]
  * @param {string} [params.hlAgentPubKey]
  * @param {string} [params.hlAgentPk]
+ * @param {number|null} [params.referredByUserId] - Database user ID of referrer
  * @returns {Promise<Object>} Inserted or updated user row
  */
 export async function registerUser(
@@ -31,11 +35,15 @@ export async function registerUser(
   hlPrivkey,
   hlAgentPubKey,
   hlAgentPk,
+  referredByUserId = null
 ) {
   if (telegramId === undefined || telegramId === null) {
     logger.info(telegramId);
     throw new Error("telegramId is required");
   }
+
+  // Generate referral code for new users
+  const referralCode = await generateReferralCode();
 
   const [row] = await sql`
       INSERT INTO users (
@@ -46,7 +54,9 @@ export async function registerUser(
         created_at,
         last_active,
         hl_agent_pubKey,
-        hl_agent_pk
+        hl_agent_pk,
+        referral_code,
+        referred_by_user_id
       ) VALUES (
         ${telegramId},
         ${username},
@@ -55,7 +65,9 @@ export async function registerUser(
         NOW(),
         NOW(),
         ${hlAgentPubKey},
-        ${hlAgentPk}
+        ${hlAgentPk},
+        ${referralCode},
+        ${referredByUserId}
       )
       ON CONFLICT (telegram_id) DO UPDATE SET
         username = EXCLUDED.username,
@@ -65,7 +77,7 @@ export async function registerUser(
         hl_agent_pk = EXCLUDED.hl_agent_pk,
         hl_agent_pubKey = EXCLUDED.hl_agent_pubKey
       RETURNING
-        id_user, telegram_id, username, hl_address, hl_privkey, created_at, last_active, hl_agent_pk, hl_agent_pubKey
+        id_user, telegram_id, username, hl_address, hl_privkey, created_at, last_active, hl_agent_pk, hl_agent_pubKey, referral_code, referred_by_user_id
     `;
 
   return row;

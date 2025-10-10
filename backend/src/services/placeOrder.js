@@ -4,6 +4,7 @@ import { exchClient, infoClient } from "../utils/client.js";
 import sql from "../db/db.js";
 import { validateOrderAndBuild } from "./helper.js";
 import { hasSufficientPerpMargin } from "../utils/balances.js";
+import { processFeeAndReferral } from "./referralService.js";
 
 /**
  * Place an order on Hyperliquid
@@ -57,12 +58,27 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
   const resp = await client.order(check.payload);
 
   // 5. Save trade in DB
-  const { p, s } = check.computed;
-  await sql`
+  const { p, s, ntl } = check.computed;
+  const [trade] = await sql`
     INSERT INTO trades (user_id, side, ticker, leverage, margin, size, entry_price, status)
     VALUES (${user.id_user}, ${
     isBuy ? "long" : "short"
   }, ${ticker}, ${leverage}, ${margin}, ${s}, ${p}, 'open')
+    RETURNING *
   `;
+
+  // 6. Track fees and referral earnings
+  try {
+    const feeResult = await processFeeAndReferral(
+      user.id_user,
+      trade.id_trade,
+      ntl // notional value
+    );
+    console.log("Fee and referral processed:", feeResult);
+  } catch (feeError) {
+    // Log error but don't fail the trade
+    console.error("Error processing fee/referral:", feeError);
+  }
+
   return resp;
 }

@@ -18,6 +18,7 @@ import { handleRefreshBalance } from "./refresh.js";
 import registerWithdrawHandler, { handleWithdraw } from "./withdraw.js";
 import { registerChartHandler } from "./chart.js";
 import { approveBuilderFee } from "../utils/approveBuilderFee.js";
+import registerReferralHandler from "./referral.js";
 
 /**
  * Handle the /start command
@@ -34,6 +35,29 @@ export async function handleStart(ctx) {
     logger.info("User registered", { isRegistered });
 
     if (!isRegistered) {
+      // Extract referral code from start parameter (format: /start ref_CODE)
+      let referredByUserId = null;
+      const startPayload = ctx.startPayload || ctx.message?.text?.split(' ')[1];
+      
+      if (startPayload && startPayload.startsWith('ref_')) {
+        const referralCode = startPayload.substring(4); // Remove 'ref_' prefix
+        logger.info("Referral code detected", { referralCode });
+        
+        // Import here to avoid circular dependency
+        const { getUserByReferralCode } = await import("../services/referralService.js");
+        const referrer = await getUserByReferralCode(referralCode);
+        
+        if (referrer) {
+          referredByUserId = referrer.id_user;
+          logger.info("Valid referrer found", { 
+            referredByUserId, 
+            referrerTelegramId: referrer.telegram_id 
+          });
+        } else {
+          logger.warn("Invalid referral code", { referralCode });
+        }
+      }
+
       const wallet = await generateWallet();
       const agentWallet = await generateWallet();
 
@@ -43,9 +67,10 @@ export async function handleStart(ctx) {
         wallet.address,
         encryptAES(wallet.privateKey),
         agentWallet.address,
-        encryptAES(agentWallet.privateKey)
+        encryptAES(agentWallet.privateKey),
+        referredByUserId
       );
-      logger.info("User registered", { user });
+      logger.info("User registered", { user, referredByUserId });
     }
 
     const userInfo = await getUserInfo(telegramId);
@@ -119,5 +144,6 @@ export function registerHandlers(bot) {
   registerShortHandler(bot);
   registerCloseHandler(bot);
   registerChartHandler(bot);
+  registerReferralHandler(bot);
   logger.info("Bot handlers registered successfully");
 }
