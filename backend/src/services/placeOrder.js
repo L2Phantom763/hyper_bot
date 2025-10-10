@@ -5,6 +5,7 @@ import sql from "../db/db.js";
 import { validateOrderAndBuild } from "./helper.js";
 import { hasSufficientPerpMargin } from "../utils/balances.js";
 import { processFeeAndReferral } from "./referralService.js";
+import { checkBuilderFeeApproval, approveBuilderFee } from "../utils/approveBuilderFee.js";
 
 /**
  * Place an order on Hyperliquid
@@ -28,7 +29,22 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
   const privKey = decryptAES(user.hl_privkey);
   const wallet = new ethers.Wallet(privKey);
 
-  // 3. Setup HL Client
+  // 3. Check and approve builder fee if necessary
+  try {
+    const builderFeeApproval = await checkBuilderFeeApproval(wallet.address);
+    console.log(`Builder fee approval: ${builderFeeApproval}`);
+    
+    if (builderFeeApproval < 1) {
+      console.log("Builder fee approval insufficient, approving now...");
+      await approveBuilderFee(wallet);
+      console.log("Builder fee approved successfully");
+    }
+  } catch (error) {
+    console.error("Error checking/approving builder fee:", error);
+    throw new Error("❌ Failed to verify builder fee approval");
+  }
+
+  // 4. Setup HL Client
   const client = await exchClient(wallet);
 
   const ok = await hasSufficientPerpMargin(wallet.address, margin, 1); // buffer 1 USDC
@@ -38,7 +54,7 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
     );
   }
 
-  // 4. Validation + payload ready
+  // 5. Validation + payload ready
   const check = await validateOrderAndBuild(infoClient, {
     ticker,
     margin,
@@ -57,7 +73,7 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
   console.log("Order payload:", JSON.stringify(check.payload, null, 2));
   const resp = await client.order(check.payload);
 
-  // 5. Save trade in DB
+  // 6. Save trade in DB
   const { p, s, ntl } = check.computed;
   const [trade] = await sql`
     INSERT INTO trades (user_id, side, ticker, leverage, margin, size, entry_price, status)
@@ -67,7 +83,7 @@ export async function placeOrder(telegramId, ticker, margin, leverage, isBuy) {
     RETURNING *
   `;
 
-  // 6. Track fees and referral earnings
+  // 7. Track fees and referral earnings
   try {
     const feeResult = await processFeeAndReferral(
       user.id_user,
