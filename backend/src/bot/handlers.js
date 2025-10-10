@@ -9,7 +9,7 @@ import { getBalance } from "../utils/balances.js";
 import { getUserInfo } from "../db/getUserInfo.js";
 import { ethers } from "ethers";
 import { coreWithdraw, arbitrumWithdraw } from "../utils/withdraw.js";
-import { handlePositions } from "./position.js";
+import { handlePositions, registerPositionHandlers } from "./position.js";
 import { handleBalance } from "./balance.js";
 import { handleWallet } from "./wallet.js";
 import registerCloseHandler from "./close.js";
@@ -19,6 +19,14 @@ import registerWithdrawHandler, { handleWithdraw } from "./withdraw.js";
 import { registerChartHandler } from "./chart.js";
 import { approveBuilderFee } from "../utils/approveBuilderFee.js";
 import registerReferralHandler from "./referral.js";
+import { registerMenuHandlers, showMainMenu } from "./menu.js";
+import { sessionManager } from "./sessionManager.js";
+import {
+  cancelButton,
+  backToMenuButton,
+  infoMessage,
+} from "./navigation.js";
+import { Markup } from "telegraf";
 
 /**
  * Handle the /start command
@@ -76,40 +84,31 @@ export async function handleStart(ctx) {
     const userInfo = await getUserInfo(telegramId);
     const userBalance = await getBalance(userInfo.hl_address);
 
-    const welcomeMessage = `👋 Welcome to HyperBot
+    if (!isRegistered) {
+      // New user welcome message
+      const welcomeMessage = 
+        `👋 *Welcome to HyperBot!*\n\n` +
+        `Your trading account has been created successfully.\n\n` +
+        `📬 *Deposit Address:*\n\`${userInfo.hl_address}\`\n\n` +
+        `💰 Current Balance: *${Number(userBalance).toFixed(2)} USDC*\n\n` +
+        `🚀 *Quick Start:*\n` +
+        `1. Deposit USDC to your address\n` +
+        `2. View available markets\n` +
+        `3. Open your first position\n\n` +
+        `Use the menu below to get started!`;
 
-    Please deposit USDC to this address:
-    ${userInfo.hl_address}
-    
-    Your balance is: ${Number(userBalance).toFixed(2)} USDC
-    
-    ❓ Need help? Type /help to see all available commands.`;
+      await ctx.replyWithMarkdown(welcomeMessage);
+    } else {
+      // Returning user message
+      const welcomeBackMessage = 
+        `👋 *Welcome back to HyperBot!*\n\n` +
+        `💰 Balance: *${Number(userBalance).toFixed(2)} USDC*`;
 
-    const alreadyRegisteredMessage = `👋 Welcome back to HyperBot
-    
-    Please deposit USDC to this address:
-    ${userInfo.hl_address}
-    
-    Your balance is: ${Number(userBalance).toFixed(2)} USDC
-    
-    ❓ Need help? Type /help to see all available commands.`;
-
-    const buttons = [
-      [{ text: "🔄 Refresh balance", callback_data: "refresh_balance" }],
-    ];
-    if (Number(userBalance) > 0) {
-      buttons[0].push({ text: "💸 Withdraw", callback_data: "withdraw_start" });
+      await ctx.replyWithMarkdown(welcomeBackMessage);
     }
-    const refreshKeyboard = {
-      reply_markup: {
-        inline_keyboard: buttons,
-      },
-    };
 
-    await ctx.replyWithMarkdown(
-      isRegistered ? alreadyRegisteredMessage.trim() : welcomeMessage.trim(),
-      refreshKeyboard
-    );
+    // Show main menu for all users
+    await showMainMenu(ctx);
   } catch (error) {
     logger.error("Error in handleStart", error);
     await ctx.reply("❌ An error occurred. Please try again later.");
@@ -122,13 +121,17 @@ export async function handleStart(ctx) {
  * @param {Object} bot - Telegraf bot instance
  */
 export function registerHandlers(bot) {
+  // Core commands
   bot.command("start", handleStart);
+  bot.command("menu", showMainMenu);
   bot.command("markets", (ctx) => handleMarkets(ctx, 0));
   bot.command("positions", handlePositions);
   bot.command("balance", handleBalance);
   bot.command("wallet", handleWallet);
   bot.command("help", handleHelp);
   bot.command("withdraw", handleWithdraw);
+
+  // Market pagination
   bot.action(/^NEXT_(\d+)$/, async (ctx) => {
     const page = Number(ctx.match[1]);
     await handleMarkets(ctx, page);
@@ -138,12 +141,122 @@ export function registerHandlers(bot) {
     const page = Number(ctx.match[1]);
     await handleMarkets(ctx, page);
   });
+
+  // Legacy refresh balance
   bot.action("refresh_balance", handleRefreshBalance);
+
+  // Trade action handlers from menu
+  bot.action("trade_long", async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const telegramId = ctx.from.id;
+      
+      // Check for existing session
+      if (sessionManager.hasSession(telegramId)) {
+        const existingSession = sessionManager.getSession(telegramId);
+        await ctx.reply(
+          infoMessage(
+            `You have an active ${existingSession.flowType} flow. Please complete or cancel it first.`
+          ),
+          Markup.inlineKeyboard([
+            [cancelButton(existingSession.flowType), backToMenuButton()],
+          ])
+        );
+        return;
+      }
+
+      // Start long flow
+      sessionManager.setSession(telegramId, "long", "chooseTicker", {});
+      await ctx.reply(
+        "✏️ Please type the *ticker* (e.g. BTC, ETH, SOL)",
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([[cancelButton("long"), backToMenuButton()]]),
+        }
+      );
+    } catch (error) {
+      logger.error("Error in trade_long action", error);
+      await ctx.reply("❌ An error occurred. Please try again.");
+    }
+  });
+
+  bot.action("trade_short", async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const telegramId = ctx.from.id;
+      
+      // Check for existing session
+      if (sessionManager.hasSession(telegramId)) {
+        const existingSession = sessionManager.getSession(telegramId);
+        await ctx.reply(
+          infoMessage(
+            `You have an active ${existingSession.flowType} flow. Please complete or cancel it first.`
+          ),
+          Markup.inlineKeyboard([
+            [cancelButton(existingSession.flowType), backToMenuButton()],
+          ])
+        );
+        return;
+      }
+
+      // Start short flow
+      sessionManager.setSession(telegramId, "short", "chooseTicker", {});
+      await ctx.reply(
+        "✏️ Please type the *ticker* (e.g. BTC, ETH, SOL)",
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([[cancelButton("short"), backToMenuButton()]]),
+        }
+      );
+    } catch (error) {
+      logger.error("Error in trade_short action", error);
+      await ctx.reply("❌ An error occurred. Please try again.");
+    }
+  });
+
+  bot.action("trade_close", async (ctx) => {
+    try {
+      await ctx.answerCbQuery();
+      const telegramId = ctx.from.id;
+      
+      // Check for existing session
+      if (sessionManager.hasSession(telegramId)) {
+        const existingSession = sessionManager.getSession(telegramId);
+        await ctx.reply(
+          infoMessage(
+            `You have an active ${existingSession.flowType} flow. Please complete or cancel it first.`
+          ),
+          Markup.inlineKeyboard([
+            [cancelButton(existingSession.flowType), backToMenuButton()],
+          ])
+        );
+        return;
+      }
+
+      // Start close flow
+      sessionManager.setSession(telegramId, "close", "ticker", {});
+      await ctx.reply(
+        "✏️ Type the *ticker* to close (e.g. BTC, ETH, SOL)",
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([[cancelButton("close"), backToMenuButton()]]),
+        }
+      );
+    } catch (error) {
+      logger.error("Error in trade_close action", error);
+      await ctx.reply("❌ An error occurred. Please try again.");
+    }
+  });
+
+  // Register specialized handlers
+  registerMenuHandlers(bot);
+  registerPositionHandlers(bot);
   registerWithdrawHandler(bot);
   registerLongHandler(bot);
   registerShortHandler(bot);
   registerCloseHandler(bot);
   registerChartHandler(bot);
   registerReferralHandler(bot);
+  
   logger.info("Bot handlers registered successfully");
 }

@@ -1,6 +1,7 @@
 import { Markup } from 'telegraf';
 import { logger } from "../utils/logger.js";
 import { infoClient } from "../utils/client.js";
+import { backToMenuButton } from "./navigation.js";
 
 export async function handleMarkets(ctx, page = 0) {
   try {
@@ -31,14 +32,28 @@ export async function handleMarkets(ctx, page = 0) {
     const navigationRow = [];
 
     if (clampedPage > 0) {
-      navigationRow.push(Markup.button.callback('Previous', `PREVIOUS_${page - 1}`));
+      navigationRow.push(Markup.button.callback('⬅️ Previous', `PREVIOUS_${page - 1}`));
     }
 
     if (clampedPage < totalPages - 1) {
-      navigationRow.push(Markup.button.callback('Next', `NEXT_${page + 1}`));
+      navigationRow.push(Markup.button.callback('Next ➡️', `NEXT_${page + 1}`));
     }
 
-    const keyboard = { reply_markup: { inline_keyboard: navigationRow.length ? [navigationRow] : [] } };
+    const keyboardButtons = [];
+    if (navigationRow.length) {
+      keyboardButtons.push(navigationRow);
+    }
+    
+    // Add quick trade buttons
+    keyboardButtons.push([
+      { text: "📈 Open Long", callback_data: "trade_long" },
+      { text: "📉 Open Short", callback_data: "trade_short" },
+    ]);
+    
+    // Add navigation
+    keyboardButtons.push([backToMenuButton()]);
+
+    const keyboard = { reply_markup: { inline_keyboard: keyboardButtons } };
 
     if (ctx.update?.callback_query) {
       await ctx.answerCbQuery().catch(() => {});
