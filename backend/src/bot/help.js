@@ -17,6 +17,12 @@ const accountCommands = [
   { cmd: "/referral", desc: "Referral program" },
 ];
 
+const airdropCommands = [
+  { cmd: "/leaderboard", desc: "View weekly leaderboard" },
+  { cmd: "/mystats", desc: "View your weekly stats" },
+  { cmd: "/rules", desc: "Airdrop rules" },
+];
+
 const generalCommands = [
   { cmd: "/start", desc: "Start or restart the bot" },
   { cmd: "/menu", desc: "Show main menu" },
@@ -30,6 +36,8 @@ export async function handleHelp(ctx) {
     tradingCommands.map((c) => `\`${c.cmd}\`\n   ${c.desc}`).join("\n\n") +
     "\n\n*💰 Account Commands:*\n" +
     accountCommands.map((c) => `\`${c.cmd}\`\n   ${c.desc}`).join("\n\n") +
+    "\n\n*🏆 Airdrop:*\n" +
+    airdropCommands.map((c) => `\`${c.cmd}\`\n   ${c.desc}`).join("\n\n") +
     "\n\n*ℹ️ General Commands:*\n" +
     generalCommands.map((c) => `\`${c.cmd}\`\n   ${c.desc}`).join("\n\n") +
     "\n\n*💡 Quick Tips:*\n" +

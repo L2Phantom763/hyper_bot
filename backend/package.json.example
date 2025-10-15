@@ -1,0 +1,22 @@
+{
+  "name": "hyper-bot-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Trading bot backend with Hunger Games airdrop system",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test:airdrop": "node src/scripts/test_airdrop.js",
+    "daily-update": "node src/scripts/daily_points_update.js",
+    "weekly-reset": "node src/scripts/weekly_reset.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all"
+  },
+  "keywords": ["telegram", "bot", "trading", "airdrop"],
+  "author": "",
+  "license": "ISC"
+}
+

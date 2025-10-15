@@ -27,6 +27,7 @@ import {
   infoMessage,
 } from "./navigation.js";
 import { Markup } from "telegraf";
+import { handleLeaderboard, handleMyStats, handleRules } from "./leaderboard.js";
 
 /**
  * Handle the /start command
@@ -130,6 +131,11 @@ export function registerHandlers(bot) {
   bot.command("wallet", handleWallet);
   bot.command("help", handleHelp);
   bot.command("withdraw", handleWithdraw);
+  
+  // Airdrop commands
+  bot.command("leaderboard", handleLeaderboard);
+  bot.command("mystats", handleMyStats);
+  bot.command("rules", handleRules);
 
   // Market pagination
   bot.action(/^NEXT_(\d+)$/, async (ctx) => {
