@@ -5,6 +5,7 @@
  * Usage: node src/scripts/test_airdrop.js
  */
 
+import '../config.js'; // Charge les variables d'environnement
 import airdropService from '../services/airdropService.js';
 import { logger } from '../utils/logger.js';
 
@@ -38,10 +39,10 @@ async function testAirdropSystem() {
     }
 
     // Test 3: Calculer les points quotidiens (simulation)
-    console.log('\n📊 Test 3: Daily points calculation');
+    console.log('\n📊 Test 3: Daily points distribution');
     try {
       const result = await airdropService.calculateDailyPoints();
-      console.log(`✅ Points calculated for ${result.updated} users`);
+      console.log(`✅ Distribution completed: ${result.updated} users, ${result.distributed.toFixed(2)} points distributed`);
     } catch (error) {
       console.log('⚠️  No trades today or error:', error.message);
     }

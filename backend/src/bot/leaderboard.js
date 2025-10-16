@@ -19,7 +19,7 @@ export async function handleLeaderboard(ctx) {
 
     let message = `🏆 *AIRDROP LEADERBOARD*\n`;
     message += `📅 Week ${week.week_number} (${startDate} - ${endDate})\n`;
-    message += `💰 Pool: 1,000,000 points\n\n`;
+    message += `💰 Daily distribution: ~142,857 points\n\n`;
 
     leaderboard.forEach((user, index) => {
       const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
@@ -106,18 +106,22 @@ export async function handleMyStats(ctx) {
 export async function handleRules(ctx) {
   const message = `🎮 *AIRDROP RULES*\n\n` +
     `*Objective:*\n` +
-    `Accumulate the most points each week to win your share of the 1,000,000 point pool!\n\n` +
-    `*How to earn points:*\n` +
+    `Trade to earn your daily share of ~142,857 points!\n\n` +
+    `*How it works:*\n` +
+    `• Every day at midnight, 142,857 points are distributed\n` +
+    `• Your share = (Your activity / Total activity) × Daily pool\n` +
+    `• Activity = Volume + Profitable trades bonus + PnL bonus\n\n` +
+    `*Activity calculation:*\n` +
     `• 📊 Trading volume (margin × leverage)\n` +
-    `• 💰 +100 points per profitable trade\n` +
-    `• 📈 +10 points per $ of positive PnL\n\n` +
+    `• 💰 +100 per profitable trade\n` +
+    `• 📈 +10 per $ of positive PnL\n\n` +
     `*Schedule:*\n` +
     `• 📅 New week every Monday\n` +
-    `• 🔄 Daily update at midnight\n` +
-    `• 🏆 Rewards distribution on Sunday night\n\n` +
-    `*Distribution:*\n` +
-    `The 1M points are distributed proportionally to your earned points.\n` +
-    `The more you trade, the bigger your share!\n\n` +
+    `• 🔄 Daily distribution at midnight\n` +
+    `• 🏆 ~1M points distributed per week\n\n` +
+    `*Key point:*\n` +
+    `Points are distributed daily based on your activity share.\n` +
+    `Everyone gets a fair chance every day!\n\n` +
     `*Commands:*\n` +
     `/leaderboard - View rankings\n` +
     `/mystats - View your stats\n` +

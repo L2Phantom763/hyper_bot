@@ -7,6 +7,7 @@
  * Crontab: 0 0 * * 1 cd /path/to/backend && node src/scripts/weekly_reset.js
  */
 
+import '../config.js'; // Charge les variables d'environnement
 import airdropService from '../services/airdropService.js';
 import { logger } from '../utils/logger.js';
 
