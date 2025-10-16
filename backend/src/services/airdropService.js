@@ -44,7 +44,7 @@ class AirdropService {
     try {
       const activeWeek = await this.getActiveWeek();
       const today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-      const dailyPool = process.env.DAILY_POOL; // 1M / 7 jours = 142,857 points par jour
+      const dailyPool = 142857; // 1M / 7 jours = 142,857 points par jour
 
       logger.info(`Calculating daily points for ${today}`);
 

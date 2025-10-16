@@ -56,6 +56,10 @@ export async function showMainMenu(ctx) {
             { text: "💸 Withdraw", callback_data: "menu_withdraw" },
             { text: "🎁 Referrals", callback_data: "menu_referral" },
           ],
+          // Airdrop row
+          [
+            { text: "🏆 Leaderboard", callback_data: "menu_leaderboard" },
+          ],
           // Help row
           [
             { text: "❓ Help", callback_data: "menu_help" },
@@ -220,6 +224,12 @@ export function registerMenuHandlers(bot) {
     await ctx.answerCbQuery();
     const { handleHelp } = await import("./help.js");
     await handleHelp(ctx);
+  });
+
+  bot.action("menu_leaderboard", async (ctx) => {
+    await ctx.answerCbQuery();
+    const { handleLeaderboard } = await import("./leaderboard.js");
+    await handleLeaderboard(ctx);
   });
 
   logger.info("Menu handlers registered successfully");

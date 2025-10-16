@@ -14,6 +14,7 @@ const accountCommands = [
   { cmd: "/balance", desc: "Check your balance" },
   { cmd: "/wallet", desc: "View wallet address" },
   { cmd: "/withdraw", desc: "Withdraw funds" },
+  { cmd: "/send @user [amount]", desc: "Send USDC to another user" },
   { cmd: "/referral", desc: "Referral program" },
 ];
 
@@ -55,6 +56,9 @@ export async function handleHelp(ctx) {
         [
           { text: "📋 View Markets", callback_data: "menu_markets" },
           { text: "📊 My Positions", callback_data: "menu_positions" },
+        ],
+        [
+          { text: "🏆 Leaderboard", callback_data: "menu_leaderboard" },
         ],
         [backToMenuButton()],
       ],

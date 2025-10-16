@@ -41,7 +41,11 @@ async function main() {
       { command: 'balance', description: 'Check your account balance' },
       { command: 'wallet', description: 'View your wallet address' },
       { command: 'withdraw', description: 'Withdraw funds to external address' },
+      { command: 'send', description: 'Send USDC to another user (min 5 USDC)' },
       { command: 'referral', description: 'View referral program and earnings' },
+      { command: 'leaderboard', description: 'View weekly leaderboard' },
+      { command: 'mystats', description: 'View your weekly stats' },
+      { command: 'rules', description: 'View airdrop rules' },
       { command: 'chart', description: 'Generate cryptocurrency chart' },
       { command: 'help', description: 'Show all available commands' }
     ]);

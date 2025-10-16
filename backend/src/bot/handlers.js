@@ -21,6 +21,7 @@ import { approveBuilderFee } from "../utils/approveBuilderFee.js";
 import registerReferralHandler from "./referral.js";
 import { registerMenuHandlers, showMainMenu } from "./menu.js";
 import { sessionManager } from "./sessionManager.js";
+import registerSendHandler from "./send.js";
 import {
   cancelButton,
   backToMenuButton,
@@ -258,6 +259,7 @@ export function registerHandlers(bot) {
   registerMenuHandlers(bot);
   registerPositionHandlers(bot);
   registerWithdrawHandler(bot);
+  registerSendHandler(bot);
   registerLongHandler(bot);
   registerShortHandler(bot);
   registerCloseHandler(bot);
